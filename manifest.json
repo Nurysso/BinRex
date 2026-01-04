@@ -1,0 +1,16 @@
+{
+  "version": "0.1.0",
+  "packages": [
+    {
+      "name": "websii",
+      "repo_url": "https://github.com/nurysso/binrex",
+      "bin_folder": "bins/websii",
+      "binary_name": "websii",
+      "description": "Simple web server to show files in browser with auto reload",
+      "keywords": ["web", "server", "http", "file-server", "development"],
+      "os_supported": "linux",
+      "required_tools": "cargo,rustc",
+      "build_commands": "cargo build --release"
+    }
+  ]
+}
