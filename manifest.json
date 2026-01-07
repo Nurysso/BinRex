@@ -5,12 +5,57 @@
       "name": "websii",
       "repo_url": "https://github.com/nurysso/binrex",
       "bin_folder": "bins/websii",
-      "binary_name": "websii",
+      "binary_name": "websii,websii-server",
+      "binary_version": "0.2.0",
       "description": "Simple web server to show files in browser with auto reload",
       "keywords": ["web", "server", "http", "file-server", "development"],
       "os_supported": "linux",
       "required_tools": "cargo,rustc",
-      "build_commands": "cargo build --release"
+      "total_bin_installed": "2",
+      "build_commands": "cargo build --release",
+      "Install_size": "4.8M,3.9M"
+    },
+    {
+      "name": "dit2",
+      "repo_url": "https://github.com/nurysso/binrex",
+      "bin_folder": "bins/dit2",
+      "binary_name": "dit2",
+      "binary_version": "0.4.3",
+      "description": "Screen Share Wirelessly ",
+      "keywords": ["server", "http", "screen", "screen share"],
+      "os_supported": "linux",
+      "required_tools": "go",
+      "total_bin_installed": "1",
+      "build_commands": "go build -o dit2 main.go",
+      "Install_size": "15M"
+    },
+        {
+      "name": "vanish",
+      "repo_url": "https://github.com/nurysso/vanish",
+      "bin_folder": "",
+      "binary_name": "vx",
+      "binary_version": "0.9.3",
+      "description": "Modern alternative to rm with cache and restore",
+      "keywords": ["file deletion", "file system", "TUI", "Personalization"],
+      "os_supported": "linux,mac",
+      "required_tools": "go",
+      "total_bin_installed": "1",
+      "build_commands": "./install.sh",
+      "Install_size": "3.9M"
+    },
+        {
+      "name": "tyr",
+      "repo_url": "https://github.com/nurysso/tyr",
+      "bin_folder": "bins/dit2",
+      "binary_name": "dit2",
+      "binary_version": "0.4.3",
+      "description": "Organize your local folders",
+      "keywords": ["File organization", "ML", "RUST", "Personalization"],
+      "os_supported": "linux,mac,windows",
+      "required_tools": "go",
+      "total_bin_installed": "1",
+      "build_commands": "./install.sh",
+      "Install_size": "2.8M"
     }
   ]
 }

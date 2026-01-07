@@ -426,7 +426,7 @@ pub async fn run_server(port: u16, initial_dir: PathBuf) -> std::io::Result<()> 
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     let listener = TcpListener::bind(addr).await?;
 
-    println!("✅ Server ready!\n");
+    println!("󰃏 Server ready!\n");
 
     axum::serve(
         listener,
