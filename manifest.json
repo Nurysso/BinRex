@@ -1,5 +1,5 @@
 {
-  "version": "0.1.0",
+  "version": "0.1.2",
   "packages": [
     {
       "name": "websii",
@@ -14,20 +14,6 @@
       "total_bin_installed": "2",
       "build_commands": "cargo build --release",
       "Install_size": "4.8M,3.9M"
-    },
-    {
-      "name": "dit2",
-      "repo_url": "https://github.com/nurysso/binrex",
-      "bin_folder": "bins/dit2",
-      "binary_name": "dit2",
-      "binary_version": "0.4.3",
-      "description": "Screen Share Wirelessly ",
-      "keywords": ["server", "http", "screen", "screen share"],
-      "os_supported": "linux",
-      "required_tools": "go",
-      "total_bin_installed": "1",
-      "build_commands": "go build -o dit2 main.go",
-      "Install_size": "15M"
     },
         {
       "name": "vanish",
