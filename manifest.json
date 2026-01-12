@@ -42,6 +42,20 @@
       "total_bin_installed": "1",
       "build_commands": "./install.sh",
       "Install_size": "2.8M"
+    },
+        {
+      "name": "file_convert",
+      "repo_url": "https://github.com/nurysso/binrex",
+      "bin_folder": "bins/file_convert",
+      "binary_name": "file_convert",
+      "binary_version": "0.4.3",
+      "description": "Simple ffmpeg wrapper written in shell",
+      "keywords": ["file conversion", "ffmpeg"],
+      "os_supported": "linux",
+      "required_tools": "terminaltexteffects,gum,ffmpeg",
+      "total_bin_installed": "2",
+      "build_commands": "echo done",
+      "Install_size": "8.0K"
     }
   ]
 }
