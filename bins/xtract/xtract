@@ -1,0 +1,212 @@
+#!/usr/bin/env bash
+
+# xtrat - extract compressed files
+# A universal archive extraction utility
+
+set -e  # Exit on error
+
+show_help() {
+    cat << 'EOF'
+xtrat - extract compressed files
+
+USAGE:
+    xtrat [OPTIONS] <file>
+
+OPTIONS:
+    -h, --help      Show this help message
+    -l, --list      List contents without extracting
+    -v, --verbose   Show extraction progress
+    -d, --dir DIR   Extract to specified directory
+
+SUPPORTED FORMATS:
+    .tar.bz2, .tbz2    bzip2 compressed tar
+    .tar.gz, .tgz      gzip compressed tar
+    .tar.xz            xz compressed tar
+    .tar.zst           zstd compressed tar
+    .tar               uncompressed tar
+    .bz2               bzip2 compressed
+    .gz                gzip compressed
+    .xz                xz compressed
+    .zst               zstd compressed
+    .zip               zip archive
+    .rar               rar archive
+    .7z                7z archive
+    .Z                 compress format
+EOF
+}
+
+# Main function
+main() {
+    local list_only=false
+    local verbose=""
+    local file=""
+    local extract_dir=""
+
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -h|--help)
+                show_help
+                exit 0
+                ;;
+            -l|--list)
+                list_only=true
+                shift
+                ;;
+            -v|--verbose)
+                verbose="v"
+                shift
+                ;;
+            version)
+            echo "0.3.1"
+            exit 0
+            ;;
+            -d|--dir)
+                if [[ -z "$2" || "$2" == -* ]]; then
+                    echo "Error: -d/--dir requires a directory argument" >&2
+                    exit 1
+                fi
+                extract_dir="$2"
+                shift 2
+                ;;
+            -*)
+                echo "Error: Unknown option: $1" >&2
+                echo "Use 'xtrat --help' for usage information" >&2
+                exit 1
+                ;;
+            *)
+                file="$1"
+                shift
+                ;;
+        esac
+    done
+
+    # Validate file argument
+    if [[ -z "$file" ]]; then
+        echo "Error: No file specified" >&2
+        echo "Use 'xtrat --help' for usage information" >&2
+        exit 1
+    fi
+
+    # Check if file exists
+    if [[ ! -f "$file" ]]; then
+        echo "Error: '$file' is not a valid file" >&2
+        exit 1
+    fi
+
+    # Create extraction directory if specified
+    if [[ -n "$extract_dir" ]]; then
+        mkdir -p "$extract_dir"
+        cd "$extract_dir" || exit 1
+    fi
+
+    # List contents only
+    if [[ "$list_only" = true ]]; then
+        case "$file" in
+            *.tar.bz2|*.tbz2)
+                tar tjf "$file"
+                ;;
+            *.tar.gz|*.tgz)
+                tar tzf "$file"
+                ;;
+            *.tar.xz)
+                tar tJf "$file"
+                ;;
+            *.tar.zst)
+                tar --zstd -tf "$file"
+                ;;
+            *.tar)
+                tar tf "$file"
+                ;;
+            *.zip)
+                unzip -l "$file"
+                ;;
+            *.rar)
+                unrar l "$file"
+                ;;
+            *.7z)
+                7z l "$file"
+                ;;
+            *)
+                echo "Error: Listing not supported for '$file'" >&2
+                exit 1
+                ;;
+        esac
+        exit 0
+    fi
+
+    # Extract files
+    echo "Extracting: $file"
+
+    case "$file" in
+        *.tar.bz2|*.tbz2)
+            tar "x${verbose}jf" "$file"
+            ;;
+        *.tar.gz|*.tgz)
+            tar "x${verbose}zf" "$file"
+            ;;
+        *.tar.xz)
+            tar "x${verbose}Jf" "$file"
+            ;;
+        *.tar.zst)
+            tar --zstd "-x${verbose}f" "$file"
+            ;;
+        *.tar)
+            tar "x${verbose}f" "$file"
+            ;;
+        *.bz2)
+            if [[ -n "$verbose" ]]; then
+                bunzip2 -v "$file"
+            else
+                bunzip2 "$file"
+            fi
+            ;;
+        *.gz)
+            if [[ -n "$verbose" ]]; then
+                gunzip -v "$file"
+            else
+                gunzip "$file"
+            fi
+            ;;
+        *.xz)
+            if [[ -n "$verbose" ]]; then
+                unxz -v "$file"
+            else
+                unxz "$file"
+            fi
+            ;;
+        *.zst)
+            if [[ -n "$verbose" ]]; then
+                unzstd -v "$file"
+            else
+                unzstd "$file"
+            fi
+            ;;
+        *.zip)
+            if [[ -n "$verbose" ]]; then
+                unzip "$file"
+            else
+                unzip -q "$file"
+            fi
+            ;;
+        *.rar)
+            unrar x "$file"
+            ;;
+        *.7z)
+            7z x "$file"
+            ;;
+        *.Z)
+            uncompress "$file"
+            ;;
+        *)
+            echo "Error: Cannot extract '$file'" >&2
+            echo "Unsupported format" >&2
+            exit 1
+            ;;
+    esac
+
+    echo "Successfully extracted: $file"
+}
+
+# Run main function with all arguments
+main "$@"
