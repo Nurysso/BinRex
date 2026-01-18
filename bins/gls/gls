@@ -1,0 +1,138 @@
+#!/usr/bin/env python
+
+import os
+from pathlib import Path
+
+def parse_gitignore(gitignore_path='.gitignore'):
+    """Read and parse .gitignore file, returning list of patterns."""
+    patterns = []
+    if not os.path.exists(gitignore_path):
+        return patterns
+
+    with open(gitignore_path, 'r') as f:
+        for line in f:
+            line = line.strip()
+            # Skip empty lines and comments
+            if line and not line.startswith('#'):
+                patterns.append(line)
+    return patterns
+
+def is_ignored(path, patterns):
+    """Check if a path matches any gitignore pattern."""
+    path = path.replace(os.sep, '/')  # Normalize path separators
+
+    for pattern in patterns:
+        # Skip negation patterns for now
+        if pattern.startswith('!'):
+            continue
+
+        # Normalize pattern
+        pattern = pattern.replace(os.sep, '/')
+
+        # Handle directory-specific patterns
+        is_dir_pattern = pattern.endswith('/')
+        if is_dir_pattern:
+            pattern = pattern.rstrip('/')
+
+        # Handle ** globstar pattern
+        if '**' in pattern:
+            # Convert ** to match any number of directories
+            parts = pattern.split('/')
+
+            # Build a path matcher
+            path_parts = path.split('/')
+
+            # Check if pattern matches
+            if match_globstar_pattern(path_parts, parts):
+                return True
+        else:
+            # Simple pattern matching
+            if pattern in path or path.endswith(pattern):
+                return True
+
+            # Check if any parent directory matches
+            path_parts = path.split('/')
+            for part in path_parts:
+                if part == pattern.rstrip('/'):
+                    return True
+
+    return False
+
+def match_globstar_pattern(path_parts, pattern_parts):
+    """Match path against pattern with ** support."""
+    pi = 0  # pattern index
+    ppi = 0  # path index
+
+    while pi < len(pattern_parts) and ppi < len(path_parts):
+        if pattern_parts[pi] == '**':
+            # ** can match zero or more directories
+            if pi == len(pattern_parts) - 1:
+                # ** at the end matches everything remaining
+                return True
+
+            # Try to match the rest of the pattern
+            for i in range(ppi, len(path_parts) + 1):
+                if match_globstar_pattern(path_parts[i:], pattern_parts[pi + 1:]):
+                    return True
+            return False
+        else:
+            # Exact match required
+            if pattern_parts[pi] != path_parts[ppi] and pattern_parts[pi] != '*':
+                return False
+            pi += 1
+            ppi += 1
+
+    # Check if we've consumed both pattern and path
+    return pi == len(pattern_parts) and ppi == len(path_parts)
+
+def list_files(directory='.', gitignore_path='.gitignore', show_ignored=False):
+    """List files and indicate which ones are ignored by .gitignore."""
+    patterns = parse_gitignore(gitignore_path)
+
+    print(f"Patterns from .gitignore:")
+    for p in patterns:
+        print(f"  - {p}")
+    print()
+
+    print(f"Files in '{directory}':")
+    print("-" * 60)
+
+    for root, dirs, files in os.walk(directory):
+        # Skip .git directory
+        if '.git' in dirs:
+            dirs.remove('.git')
+
+        # Get relative path
+        rel_root = os.path.relpath(root, directory)
+        if rel_root == '.':
+            rel_root = ''
+
+        # Filter out ignored directories to prevent walking into them
+        dirs_to_remove = []
+        for d in dirs:
+            rel_path = os.path.join(rel_root, d) if rel_root else d
+            if is_ignored(rel_path, patterns):
+                dirs_to_remove.append(d)
+                if show_ignored:
+                    print(f"  {rel_path}/ [IGNORED]")
+
+        # Remove ignored directories from walk
+        for d in dirs_to_remove:
+            dirs.remove(d)
+
+        # Show non-ignored directories
+        for d in sorted(dirs):
+            rel_path = os.path.join(rel_root, d) if rel_root else d
+            print(f"  {rel_path}/")
+
+        # Check files
+        for f in sorted(files):
+            rel_path = os.path.join(rel_root, f) if rel_root else f
+            if is_ignored(rel_path, patterns):
+                if show_ignored:
+                    print(f"  {rel_path} [IGNORED]")
+            else:
+                print(f"  {rel_path}")
+
+if __name__ == '__main__':
+    list_files(show_ignored=False)

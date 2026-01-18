@@ -1,0 +1,54 @@
+# Poto Configuration for future version
+
+[scanner]
+# Directories to scan (comma-separated list)
+# Leave empty to use home directory by default
+scan_directories = []
+
+# Excluded directories (will be skipped during scan)
+excluded_directories = [
+    ".git",
+    ".cache",
+    "node_modules",
+    ".npm",
+    ".vscode",
+    "AppData",
+    "Library/Caches"
+]
+
+[preview]
+# Preview quality: "low" (512px), "medium" (1200px), "high" (2400px)
+quality = "medium"
+
+# JPEG quality for thumbnails (1-100)
+jpeg_quality = 95
+
+# Generate video thumbnails (requires ffmpeg)
+video_thumbnails = true
+
+# Video thumbnail time offset in seconds (extract frame at this time)
+video_thumbnail_offset = 1.0
+
+[video]
+# Enable video playback with MPV
+enable_mpv = true
+
+# MPV executable path (leave empty to use system PATH)
+mpv_path = ""
+
+# MPV command line arguments
+mpv_args = [
+    "--force-window=yes",
+    "--keep-open=yes",
+    "--ontop"
+]
+
+[performance]
+# Number of worker threads for scanning
+worker_threads = 4
+
+# Batch size for sending media files to frontend
+batch_size = 20
+
+# Maximum file size to process for thumbnails (in MB)
+max_thumbnail_size = 100

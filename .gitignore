@@ -1,0 +1,12 @@
+bins/**/target
+bins/**/node_modules
+bins/**/**/node_modules
+bins/**/package-lock.json
+bins/**/package.json.md5
+bins/**/**/package-lock.json
+bins/**/**/package.json.md5
+bins/**/frontend/wailsjs
+bins/**/build
+bins/**/**/build
+bins/**/dist
+bins/**/**/dist
