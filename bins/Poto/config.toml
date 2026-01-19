@@ -1,54 +1,231 @@
-# Poto Configuration for future version
+# Poto Media Scanner Configuration File
+# This file should be placed at: ~/.config/Poto/config.toml (Linux/Mac) or %unamePROFILE%\.config\Poto\config.toml (Windows)
 
 [scanner]
-# Directories to scan (comma-separated list)
-# Leave empty to use home directory by default
-scan_directories = []
-
-# Excluded directories (will be skipped during scan)
-excluded_directories = [
-    ".git",
-    ".cache",
-    "node_modules",
-    ".npm",
-    ".vscode",
-    "AppData",
-    "Library/Caches"
+# Directories to scan when no specific path is provided
+# These directories will be scanned when you click "Start Scan" without specifying a path
+scan_directories = [
+    "/home/uname/Pictures",
+    "/home/uname/Videos",
 ]
 
-[preview]
-# Preview quality: "low" (512px), "medium" (1200px), "high" (2400px)
-quality = "medium"
+# Directories to exclude from scanning (by name, case-insensitive)
+# Any folder matching these names will be skipped entirely
+excluded_directories = [
+    "node_modules",
+    ".git",
+    "cache",
+    "tmp",
+    "temp",
+    ".trash",
+    "Trash"
+]
 
-# JPEG quality for thumbnails (1-100)
+# File/folder patterns to ignore (supports wildcards)
+# Use * for any characters, ? for single character
+ignore_patterns = [
+    "*.tmp",
+    "*.cache",
+    "*backup*",
+    ".*"  # Ignore all hidden files/folders starting with dot
+]
+
+# Skip hidden files and directories (starting with .)
+# Set to false if you want to scan hidden directories
+ignore_hidden = true
+
+# Per-folder rules allow fine-grained control over specific directories
+# Format: [scanner.per_folder_rules."folder_path"]
+[scanner.per_folder_rules."/home/uname/Personal/go"]
+# Only scan these specific subfolders (empty array = scan all)
+allowed_subfolders = ["walls", "videos", "archive"]
+# Explicitly block these subfolders
+blocked_subfolders = ["temp", "build"]
+# Whether to scan subdirectories recursively
+scan_recursively = true
+
+[scanner.per_folder_rules."/home/uname/Downloads"]
+allowed_subfolders = []
+blocked_subfolders = ["torrents", "incomplete"]
+# Only scan the top level, don't go into subdirectories
+scan_recursively = false
+
+[preview]
+# Thumbnail quality: "low" (512px), "medium" (1200px), or "high" (2400px)
+# Higher quality = larger memory usage but better preview quality
+quality = "high"
+
+# JPEG compression quality for thumbnails (1-100)
+# Higher = better quality but larger size
+# Recommended: 85-95 for good balance
 jpeg_quality = 95
 
-# Generate video thumbnails (requires ffmpeg)
+# Generate thumbnails for video files
+# Requires ffmpeg to be installed and available in PATH
 video_thumbnails = true
 
-# Video thumbnail time offset in seconds (extract frame at this time)
+# Video thumbnail time offset in seconds
+# The frame at this timestamp will be used as the thumbnail
+# 1.0 = 1 second into the video
 video_thumbnail_offset = 1.0
 
 [video]
-# Enable video playback with MPV
+# Enable MPV video player integration
+# Allows playing videos directly from the app
 enable_mpv = true
 
-# MPV executable path (leave empty to use system PATH)
+# Path to MPV executable
+# Leave empty to use system PATH
+# Examples:
+#   Linux: "/usr/bin/mpv"
+#   Mac: "/usr/local/bin/mpv"
+#   Windows: "C:\\Program Files\\mpv\\mpv.exe"
 mpv_path = ""
 
-# MPV command line arguments
+# Command-line arguments passed to MPV
+# These control MPV's behavior when playing videos
 mpv_args = [
-    "--force-window=yes",
-    "--keep-open=yes",
-    "--ontop"
+    "--force-window=yes",  # Always create a window
+    "--keep-open=yes",     # Keep window open after video ends
+    "--ontop"              # Keep MPV window on top
 ]
+# Additional useful MPV arguments you might want to add:
+# "--volume=50"          # Set default volume to 50%
+# "--fullscreen"         # Start in fullscreen
+# "--loop"               # Loop the video
+# "--start=10"           # Start 10 seconds in
+# "--hwdec=auto"         # Enable hardware decoding
 
 [performance]
 # Number of worker threads for scanning
+# More threads = faster scanning but higher CPU usage
+# Recommended: Number of CPU cores (typically 4-8)
 worker_threads = 4
 
-# Batch size for sending media files to frontend
+# Batch size for emitting media results to UI
+# Larger batches = fewer UI updates but better performance
+# Recommended: 20-50 for good responsiveness
 batch_size = 20
 
-# Maximum file size to process for thumbnails (in MB)
+# Maximum thumbnail file size to process in MB
+# Files larger than this won't have thumbnails generated
+# Prevents memory issues with very large images
+# 100 MB is a safe default
 max_thumbnail_size = 100
+
+
+# currenlty only light and dark more will be added
+# and maybe will add a way to set custom theme
+[look]
+theme="dark"
+
+# ========================================
+# USAGE EXAMPLES AND TIPS
+# ========================================
+
+# Example 1: Photo Collection Scanner
+# Optimized for scanning large photo libraries
+#
+# [scanner]
+# scan_directories = ["/home/uname/Photos"]
+# ignore_hidden = true
+# [preview]
+# quality = "high"
+# jpeg_quality = 90
+# [performance]
+# worker_threads = 8
+# batch_size = 50
+
+# Example 2: Video Library Scanner
+# Optimized for video collections with MPV playback
+#
+# [scanner]
+# scan_directories = ["/mnt/movies", "/mnt/tv"]
+# [preview]
+# quality = "medium"
+# video_thumbnails = true
+# video_thumbnail_offset = 30.0  # 30 seconds in for better preview
+# [video]
+# enable_mpv = true
+# mpv_args = ["--fullscreen", "--keep-open=yes"]
+
+# Example 3: Fast Scanning (Performance Priority)
+# Minimal thumbnail generation for speed
+#
+# [preview]
+# quality = "low"
+# jpeg_quality = 75
+# video_thumbnails = false
+# [performance]
+# worker_threads = 16
+# batch_size = 100
+# max_thumbnail_size = 50
+
+# Example 4: Selective Folder Scanning
+# Only scan specific project folders
+#
+# [scanner.per_folder_rules."/home/uname/Work"]
+# allowed_subfolders = ["client_a", "client_b"]
+# blocked_subfolders = ["archive", "old"]
+# scan_recursively = true
+
+# Example 5: Archive Scanning (Non-Recursive)
+# Scan only top-level of archive folders
+#
+# [scanner.per_folder_rules."/mnt/archive"]
+# allowed_subfolders = []
+# blocked_subfolders = []
+# scan_recursively = false
+
+# ========================================
+# SUPPORTED FILE FORMATS
+# ========================================
+#
+# Images: .jpg, .jpeg, .png, .gif, .bmp, .webp, .svg, .ico, .tiff, .tif, .heic, .heif
+# Videos: .mp4, .avi, .mkv, .mov, .wmv, .flv, .webm, .m4v, .mpg, .mpeg, .3gp, .ogv
+#
+# ========================================
+# PERFORMANCE TUNING GUIDE
+# ========================================
+#
+# For SSDs (Fast Storage):
+#   - worker_threads: 8-16
+#   - batch_size: 50-100
+#
+# For HDDs (Slow Storage):
+#   - worker_threads: 2-4
+#   - batch_size: 20-30
+#
+# For Low Memory Systems (<8GB RAM):
+#   - quality: "low"
+#   - max_thumbnail_size: 50
+#   - video_thumbnails: false
+#
+# For High Memory Systems (16GB+ RAM):
+#   - quality: "high"
+#   - max_thumbnail_size: 200
+#   - jpeg_quality: 95
+#
+# ========================================
+# TROUBLESHOOTING
+# ========================================
+#
+# Issue: Scan is too slow
+# Solution: Reduce worker_threads, disable video_thumbnails, lower quality
+#
+# Issue: High memory usage
+# Solution: Lower max_thumbnail_size, reduce quality, decrease batch_size
+#
+# Issue: Missing thumbnails
+# Solution: Check if files exceed max_thumbnail_size, verify file permissions
+#
+# Issue: Video thumbnails not generating
+# Solution: Ensure ffmpeg is installed and in PATH, check video_thumbnail_offset
+#
+# Issue: MPV not launching
+# Solution: Set correct mpv_path, verify MPV is installed
+#
+# Issue: Hidden folders being scanned
+# Solution: Set ignore_hidden = true
+#
+# ========================================
