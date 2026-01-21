@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+
 	// "io/fs"
 	"net/http"
 	"os"
@@ -16,10 +17,10 @@ import (
 
 // Constants
 const (
-	MaxPath    = 512
-	MaxCmd     = 1024
-	MaxBuffer  = 16384
-	RepoURL    = "https://github.com/nurysso/binrex"
+	MaxPath   = 512
+	MaxCmd    = 1024
+	MaxBuffer = 16384
+	RepoURL   = "https://github.com/nurysso/binrex"
 )
 
 // Package represents a package in the manifest
@@ -859,7 +860,7 @@ func run() int {
 		}
 		return 0
 	case "version":
-			fmt.Println("0.1.2");
+		fmt.Println("0.1.4")
 	case "install":
 		if len(os.Args) < 3 {
 			fmt.Fprintln(os.Stderr, "Error: package name required")

@@ -1,4 +1,4 @@
-module Proto
+module Poto
 
 go 1.24.0
 

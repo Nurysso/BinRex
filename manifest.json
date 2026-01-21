@@ -1,5 +1,5 @@
 {
-  "version": "0.1.2",
+  "version": "0.1.4",
   "packages": [
     {
       "name": "websii",
@@ -15,7 +15,7 @@
       "build_commands": "cargo build --release",
       "Install_size": "4.8M,3.9M"
     },
-        {
+    {
       "name": "vanish",
       "repo_url": "https://github.com/nurysso/vanish",
       "bin_folder": "",
@@ -29,7 +29,7 @@
       "build_commands": "./install.sh",
       "Install_size": "3.9M"
     },
-        {
+    {
       "name": "tyr",
       "repo_url": "https://github.com/nurysso/tyr",
       "bin_folder": "bins/dit2",
@@ -43,7 +43,7 @@
       "build_commands": "./install.sh",
       "Install_size": "2.8M"
     },
-        {
+    {
       "name": "konvert",
       "repo_url": "https://github.com/nurysso/binrex",
       "bin_folder": "bins/konvert",
@@ -57,7 +57,7 @@
       "build_commands": "echo moving",
       "Install_size": "8.0K"
     },
-                   {
+    {
       "name": "uv",
       "repo_url": "https://github.com/nurysso/binrex",
       "bin_folder": "bins/uv-linux",
@@ -71,7 +71,7 @@
       "build_commands": "./uv-install.sh",
       "Install_size": "53M"
     },
-                       {
+    {
       "name": "xtract",
       "repo_url": "https://github.com/nurysso/binrex",
       "bin_folder": "bins/xtract",
@@ -84,6 +84,34 @@
       "total_bin_installed": "1",
       "build_commands": "echo moving",
       "Install_size": "8.0K"
+    },
+    {
+      "name": "Poto",
+      "repo_url": "https://github.com/nurysso/binrex",
+      "bin_folder": "bins/Poto",
+      "binary_name": "Poto",
+      "binary_version": "0.2.1",
+      "description": "Simple media viewer",
+      "keywords": ["Media", "Photo", "MPV", "Video", "Image"],
+      "os_supported": "linux",
+      "required_tools": "go, wails",
+      "total_bin_installed": "1",
+      "build_commands": "./install.sh",
+      "Install_size": "9.4M"
+    },
+    {
+      "name": "Binrex",
+      "repo_url": "https://github.com/nurysso/binrex",
+      "bin_folder": ".",
+      "binary_name": "binrex",
+      "binary_version": "0.1.4",
+      "description": "Simple Git based pkg manager",
+      "keywords": ["Core", "Git", "Packages"],
+      "os_supported": "linux",
+      "required_tools": "go build -o binrex main.go",
+      "total_bin_installed": "1",
+      "build_commands": "./install.sh",
+      "Install_size": "8.7M"
     }
   ]
 }
