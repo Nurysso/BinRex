@@ -408,10 +408,10 @@ _showSystemInfo() {
   echo -e "${BLUE}  Uptime:${NC}       $(uptime -p)"
   echo -e "${BLUE}  Packages:${NC}     $(_getPackageCount) installed"
 
-  if _commandExists "neofetch"; then
-    echo
-    neofetch --stdout --config none --disable title underline
-  fi
+#   if _commandExists "neofetch"; then
+#     echo
+#     neofetch --stdout --config none --disable title underline
+#   fi
   echo
 }
 

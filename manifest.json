@@ -112,6 +112,34 @@
       "total_bin_installed": "1",
       "build_commands": "./install.sh",
       "Install_size": "8.7M"
+    },
+    {
+      "name": "ggg",
+      "repo_url": "https://github.com/nurysso/binrex",
+      "bin_folder": "bins/ggg",
+      "binary_name": "ggg",
+      "binary_version": "0.1.5",
+      "description": "Screen saver",
+      "keywords": ["Media", "Photo", "Terminal", "Ascii", "Image"],
+      "os_supported": "linux, mac,windows",
+      "required_tools": "python3",
+      "total_bin_installed": "1",
+      "build_commands": "echo moving",
+      "Install_size": "28K"
+    },
+    {
+      "name": "sysup",
+      "repo_url": "https://github.com/nurysso/binrex",
+      "bin_folder": "bins/sysup",
+      "binary_name": "sysup",
+      "binary_version": "0.7.1",
+      "description": "System updater",
+      "keywords": ["Packages", "System", "Other"],
+      "os_supported": "linux",
+      "required_tools": "gum, timeshift, notify-send",
+      "total_bin_installed": "1",
+      "build_commands": "echo moving",
+      "Install_size": "16K"
     }
   ]
 }
