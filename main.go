@@ -1,3 +1,5 @@
+//$GOROOT/bin/go run $0 $@ ; exit
+
 package main
 
 import (
@@ -36,6 +38,8 @@ type Package struct {
 	RequiredTools     string   `json:"required_tools"`
 	TotalBinInstalled string   `json:"total_bin_installed"`
 	BuildCommands     string   `json:"build_commands"`
+	BuildDirExist     bool     `json:"build_bin_exist"`
+	BuildDir          string   `json:"build_dir"`
 	InstallSize       string   `json:"Install_size"`
 }
 
@@ -279,6 +283,7 @@ func findBinariesInBuildPath(buildPath string, pkg *Package) []Binary {
 		filepath.Join(buildPath, "target", "release"),
 		filepath.Join(buildPath, "target", "debug"),
 		filepath.Join(buildPath, "build"),
+		filepath.Join(buildPath, "build", "bin"),
 		filepath.Join(buildPath, "bin"),
 		filepath.Join(buildPath, "dist"),
 		buildPath,
@@ -502,19 +507,13 @@ func installPackage(name string) error {
 		return err
 	}
 
-	// Build package
+	// Determine build path
 	buildPath := repoPath
-	if pkg.BinFolder != "" {
+	if pkg.BuildDir != "" {
+		buildPath = filepath.Join(repoPath, pkg.BuildDir)
+	} else if pkg.BinFolder != "" {
 		buildPath = filepath.Join(repoPath, pkg.BinFolder)
 	}
-
-	if !fileExists(buildPath) {
-		fmt.Fprintf(os.Stderr, "Error: Build path not found: %s\n", buildPath)
-		return fmt.Errorf("build path not found")
-	}
-
-	fmt.Printf("\nBuild path: %s\n", buildPath)
-	fmt.Println("Building package...")
 
 	// Remove any mv commands from build_commands
 	buildCmd := pkg.BuildCommands
@@ -539,85 +538,219 @@ func installPackage(name string) error {
 		return err
 	}
 
+	if !fileExists(buildPath) {
+		fmt.Fprintf(os.Stderr, "Error: Build path not found: %s\n", buildPath)
+		return fmt.Errorf("build path not found")
+	}
+
+	fmt.Printf("\nBuild path: %s\n", buildPath)
+	fmt.Println("Building package...")
+
 	// Find all binaries in the build directory
 	fmt.Println("\nSearching for built binaries...")
 	foundBinaries := findBinariesInBuildPath(buildPath, pkg)
 
-	if len(foundBinaries) == 0 {
-		fmt.Fprintln(os.Stderr, "Error: No binaries found after build")
-		fmt.Fprintf(os.Stderr, "Searched in: %s\n", buildPath)
-		return fmt.Errorf("no binaries found")
+	// Check BuildDirExist - if false, we expect binaries to be found
+	// if true, the install script handles binary placement
+	if !pkg.BuildDirExist {
+		if len(foundBinaries) == 0 {
+			fmt.Fprintln(os.Stderr, "Error: No binaries found after build")
+			fmt.Fprintf(os.Stderr, "Searched in: %s\n", buildPath)
+			return fmt.Errorf("no binaries found")
+		}
+
+		fmt.Printf("Found %d binary file(s):\n", len(foundBinaries))
+		for _, binary := range foundBinaries {
+			fmt.Printf("  - %s at %s\n", binary.Name, binary.Path)
+		}
+
+		// Copy all binaries to bin_dir
+		fmt.Printf("\nInstalling binaries to %s...\n", binDir)
+		var installedBinaries []string
+
+		fmt.Printf("DEBUG: About to install %d binaries\n", len(foundBinaries))
+
+		for i, binary := range foundBinaries {
+			src := binary.Path
+			dst := filepath.Join(binDir, binary.Name)
+
+			fmt.Printf("DEBUG: [%d/%d] Copying %s -> %s\n", i+1, len(foundBinaries), src, dst)
+
+			if !fileExists(src) {
+				fmt.Fprintf(os.Stderr, "ERROR: Source file does not exist: %s\n", src)
+				continue
+			}
+
+			// Copy file
+			if err := copyFile(src, dst); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: Failed to install %s: %v\n", binary.Name, err)
+				continue
+			}
+
+			// Make executable
+			if err := os.Chmod(dst, 0755); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: Failed to make %s executable: %v\n", binary.Name, err)
+			}
+
+			installedBinaries = append(installedBinaries, dst)
+			fmt.Printf("✓ Installed: %s\n", dst)
+		}
+
+		fmt.Printf("\nDEBUG: Final installed_binaries count: %d\n", len(installedBinaries))
+
+		if len(installedBinaries) == 0 {
+			fmt.Fprintln(os.Stderr, "Error: No binaries were installed")
+			return fmt.Errorf("no binaries installed")
+		}
+
+		// Update installed.json
+		date := getCurrentDate()
+		installedData, _ = loadInstalled()
+
+		newEntry := InstalledPackage{
+			Name:          name,
+			Version:       pkg.BinaryVersion,
+			BinaryPaths:   installedBinaries,
+			RepoPath:      repoPath,
+			InstallDate:   date,
+			TotalBinaries: len(installedBinaries),
+		}
+
+		installedData.Installed = append(installedData.Installed, newEntry)
+
+		if err := saveInstalled(installedData); err != nil {
+			fmt.Fprintln(os.Stderr, "Warning: Failed to update installed.json")
+		}
+
+		fmt.Printf("\n✓ Successfully installed %s!\n", name)
+		fmt.Printf("  Version: %s\n", pkg.BinaryVersion)
+		fmt.Printf("  Repository: %s\n", pkg.RepoURL)
+		fmt.Printf("  Binaries installed: %d\n", len(installedBinaries))
+		for _, binary := range installedBinaries {
+			fmt.Printf("    - %s\n", binary)
+		}
+	} else {
+		// BuildDirExist is true - install script handles binary installation
+		fmt.Println("\nNote: This package uses an install script for binary placement.")
+		fmt.Println("Binaries should be installed by the build script.")
+
+		// Update installed.json without binary paths
+		date := getCurrentDate()
+		installedData, _ = loadInstalled()
+
+		newEntry := InstalledPackage{
+			Name:          name,
+			Version:       pkg.BinaryVersion,
+			BinaryPaths:   []string{}, // Empty as install script handles it
+			RepoPath:      repoPath,
+			InstallDate:   date,
+			TotalBinaries: 0,
+		}
+
+		installedData.Installed = append(installedData.Installed, newEntry)
+
+		if err := saveInstalled(installedData); err != nil {
+			fmt.Fprintln(os.Stderr, "Warning: Failed to update installed.json")
+		}
+
+		fmt.Printf("\n✓ Successfully installed %s!\n", name)
+		fmt.Printf("  Version: %s\n", pkg.BinaryVersion)
+		fmt.Printf("  Repository: %s\n", pkg.RepoURL)
+		fmt.Println("  Note: Binaries managed by install script")
 	}
 
-	fmt.Printf("Found %d binary file(s):\n", len(foundBinaries))
-	for _, binary := range foundBinaries {
-		fmt.Printf("  - %s at %s\n", binary.Name, binary.Path)
+	return nil
+}
+
+// installAll installs all the package available in manifest.json
+func installAll() error {
+	fmt.Println("Installing all packages from manifest...")
+
+	// Check if manifest exists
+	if !fileExists(manifestPath) {
+		fmt.Fprintf(os.Stderr, "Error: manifest.json not found at %s\n", manifestPath)
+		fmt.Fprintln(os.Stderr, "Run 'binrex sync' to download the manifest.")
+		return fmt.Errorf("manifest not found")
 	}
 
-	// Copy all binaries to bin_dir
-	fmt.Printf("\nInstalling binaries to %s...\n", binDir)
-	var installedBinaries []string
+	// Load manifest
+	manifest, err := loadManifest()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: Failed to load manifest: %v\n", err)
+		return err
+	}
 
-	fmt.Printf("DEBUG: About to install %d binaries\n", len(foundBinaries))
+	// Get already installed packages
+	installedData, _ := loadInstalled()
+	installedMap := make(map[string]bool)
+	for _, pkg := range installedData.Installed {
+		installedMap[pkg.Name] = true
+	}
 
-	for i, binary := range foundBinaries {
-		src := binary.Path
-		dst := filepath.Join(binDir, binary.Name)
+	// Filter packages to install
+	var toInstall []Package
+	currentOS := getOSName()
 
-		fmt.Printf("DEBUG: [%d/%d] Copying %s -> %s\n", i+1, len(foundBinaries), src, dst)
-
-		if !fileExists(src) {
-			fmt.Fprintf(os.Stderr, "ERROR: Source file does not exist: %s\n", src)
+	for _, pkg := range manifest.Packages {
+		// Skip if already installed
+		if installedMap[pkg.Name] {
+			fmt.Printf("Skipping %s (already installed)\n", pkg.Name)
 			continue
 		}
 
-		// Copy file
-		if err := copyFile(src, dst); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: Failed to install %s: %v\n", binary.Name, err)
+		// Skip if OS not supported
+		if !strings.Contains(pkg.OSSupported, currentOS) && pkg.OSSupported != "all" {
+			fmt.Printf("Skipping %s (not supported on %s)\n", pkg.Name, currentOS)
 			continue
 		}
 
-		// Make executable
-		if err := os.Chmod(dst, 0755); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: Failed to make %s executable: %v\n", binary.Name, err)
+		// Check required tools
+		if !checkRequiredTools(pkg.RequiredTools) {
+			fmt.Printf("Skipping %s (missing required tools: %s)\n", pkg.Name, pkg.RequiredTools)
+			continue
 		}
 
-		installedBinaries = append(installedBinaries, dst)
-		fmt.Printf("✓ Installed: %s\n", dst)
+		toInstall = append(toInstall, pkg)
 	}
 
-	fmt.Printf("\nDEBUG: Final installed_binaries count: %d\n", len(installedBinaries))
-
-	if len(installedBinaries) == 0 {
-		fmt.Fprintln(os.Stderr, "Error: No binaries were installed")
-		return fmt.Errorf("no binaries installed")
+	if len(toInstall) == 0 {
+		fmt.Println("No packages to install.")
+		return nil
 	}
 
-	// Update installed.json
-	date := getCurrentDate()
-	installedData, _ = loadInstalled()
+	fmt.Printf("\nFound %d package(s) to install:\n", len(toInstall))
+	for _, pkg := range toInstall {
+		fmt.Printf("  - %s (%s)\n", pkg.Name, pkg.BinaryVersion)
+	}
+	fmt.Println()
 
-	newEntry := InstalledPackage{
-		Name:          name,
-		Version:       pkg.BinaryVersion,
-		BinaryPaths:   installedBinaries,
-		RepoPath:      repoPath,
-		InstallDate:   date,
-		TotalBinaries: len(installedBinaries),
+	// Install each package by recursively calling installPackage
+	successCount := 0
+	failCount := 0
+
+	for i, pkg := range toInstall {
+		fmt.Printf("\n[%d/%d] Installing %s...\n", i+1, len(toInstall), pkg.Name)
+		fmt.Println(strings.Repeat("=", 60))
+
+		// Recursively call installPackage for each package in manifest
+		if err := installPackage(pkg.Name); err != nil {
+			fmt.Fprintf(os.Stderr, "✗ Failed to install %s: %v\n", pkg.Name, err)
+			failCount++
+		} else {
+			successCount++
+		}
 	}
 
-	installedData.Installed = append(installedData.Installed, newEntry)
-
-	if err := saveInstalled(installedData); err != nil {
-		fmt.Fprintln(os.Stderr, "Warning: Failed to update installed.json")
+	// Summary
+	fmt.Println("\n" + strings.Repeat("=", 60))
+	fmt.Println("Installation Summary:")
+	fmt.Printf("  ✓ Successfully installed: %d\n", successCount)
+	if failCount > 0 {
+		fmt.Printf("  ✗ Failed: %d\n", failCount)
 	}
 
-	fmt.Printf("\n✓ Successfully installed %s!\n", name)
-	fmt.Printf("  Version: %s\n", pkg.BinaryVersion)
-	fmt.Printf("  Repository: %s\n", pkg.RepoURL)
-	fmt.Printf("  Binaries installed: %d\n", len(installedBinaries))
-	for _, binary := range installedBinaries {
-		fmt.Printf("    - %s\n", binary)
+	if failCount > 0 {
+		return fmt.Errorf("some packages failed to install")
 	}
 
 	return nil
@@ -823,6 +956,7 @@ func printUsage(prog string) {
 	fmt.Println("Commands:")
 	fmt.Println("  sync            - Sync manifest from GitHub")
 	fmt.Println("  install <name>  - Install a package")
+	fmt.Println("  install -a  - Installs all packages in manifest.json")
 	fmt.Println("  remove <name>   - Remove a package")
 	fmt.Println("  list            - List installed packages")
 	fmt.Println("  update <name>   - Update a package")
@@ -865,6 +999,9 @@ func run() int {
 		if len(os.Args) < 3 {
 			fmt.Fprintln(os.Stderr, "Error: package name required")
 			return 1
+		}
+		if os.Args[2] == "-a" {
+			installAll()
 		}
 		if err := installPackage(os.Args[2]); err != nil {
 			return 1
