@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-
-	// "io/fs"
 	"net/http"
 	"os"
 	"os/exec"
@@ -19,28 +17,23 @@ import (
 
 // Constants
 const (
-	MaxPath   = 512
-	MaxCmd    = 1024
-	MaxBuffer = 16384
-	RepoURL   = "https://github.com/nurysso/binrex"
+	RepoURL = "https://github.com/nurysso/binrex"
 )
 
 // Package represents a package in the manifest
 type Package struct {
-	Name              string   `json:"name"`
-	RepoURL           string   `json:"repo_url"`
-	BinFolder         string   `json:"bin_folder"`
-	BinaryName        string   `json:"binary_name"`
-	BinaryVersion     string   `json:"binary_version"`
-	Description       string   `json:"description"`
-	Keywords          []string `json:"keywords"`
-	OSSupported       string   `json:"os_supported"`
-	RequiredTools     string   `json:"required_tools"`
-	TotalBinInstalled string   `json:"total_bin_installed"`
-	BuildCommands     string   `json:"build_commands"`
-	BuildDirExist     bool     `json:"build_bin_exist"`
-	BuildDir          string   `json:"build_dir"`
-	InstallSize       string   `json:"Install_size"`
+	Name          string   `json:"name"`
+	RepoURL       string   `json:"repo_url"`
+	SourceDir     string   `json:"source_dir"`   // Where to run build commands (where Cargo.toml/Makefile is)
+	BinPath       string   `json:"bin_path"`     // Optional: explicit path to binaries after build
+	BinaryNames   []string `json:"binary_names"` // List of binary names to install
+	Version       string   `json:"version"`
+	Description   string   `json:"description"`
+	Keywords      []string `json:"keywords"`
+	OSSupported   string   `json:"os_supported"`
+	RequiredTools string   `json:"required_tools"`
+	BuildCommands string   `json:"build_commands"`
+	InstallSize   string   `json:"install_size"`
 }
 
 // InstalledPackage represents an installed package
@@ -76,7 +69,6 @@ var (
 	binDir        string
 	manifestPath  string
 	installedPath string
-	repoCache     string
 )
 
 // initPaths initializes all directory paths
@@ -91,7 +83,6 @@ func initPaths() error {
 	binDir = filepath.Join(home, ".local", "bin")
 	manifestPath = filepath.Join(configDir, "manifest.json")
 	installedPath = filepath.Join(configDir, "installed.json")
-	repoCache = filepath.Join(cacheDir, "binrex-repo")
 
 	return nil
 }
@@ -103,12 +94,7 @@ func getOSName() string {
 
 // createDirectories creates necessary directories
 func createDirectories() error {
-	dirs := []string{
-		configDir,
-		filepath.Join(os.Getenv("HOME"), ".cache", "binrex"),
-		cacheDir,
-		binDir,
-	}
+	dirs := []string{configDir, cacheDir, binDir}
 
 	for _, dir := range dirs {
 		if err := os.MkdirAll(dir, 0755); err != nil {
@@ -134,7 +120,6 @@ func fileExists(path string) bool {
 
 // runCommand runs a shell command and prints output
 func runCommand(cmd string) error {
-	fmt.Printf("Running: %s\n", cmd)
 	command := exec.Command("sh", "-c", cmd)
 	command.Stdout = os.Stdout
 	command.Stderr = os.Stderr
@@ -149,14 +134,18 @@ func runCommandSilent(cmd string) error {
 
 // checkToolExists checks if a tool is available
 func checkToolExists(tool string) bool {
-	cmd := fmt.Sprintf("which %s", tool)
+	cmd := fmt.Sprintf("which %s > /dev/null 2>&1", tool)
 	return runCommandSilent(cmd) == nil
 }
 
 // checkRequiredTools checks if all required tools are available
 func checkRequiredTools(tools string) bool {
+	if tools == "" {
+		return true
+	}
+
 	toolsList := strings.Split(tools, ",")
-	missing := false
+	allFound := true
 
 	fmt.Println("Checking required tools...")
 	for _, tool := range toolsList {
@@ -169,11 +158,11 @@ func checkRequiredTools(tools string) bool {
 			fmt.Printf("  ✓ %s found\n", tool)
 		} else {
 			fmt.Printf("  ✗ %s NOT FOUND\n", tool)
-			missing = true
+			allFound = false
 		}
 	}
 
-	return !missing
+	return allFound
 }
 
 // getCurrentDate returns current date in YYYY-MM-DD format
@@ -237,6 +226,17 @@ func findPackage(name string) (*Package, error) {
 	return nil, fmt.Errorf("package '%s' not found", name)
 }
 
+// isPackageInstalled checks if a package is already installed
+func isPackageInstalled(name string) bool {
+	installedData, _ := loadInstalled()
+	for _, pkg := range installedData.Installed {
+		if pkg.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
 // getRepoNameFromURL extracts repository name from GitHub URL
 func getRepoNameFromURL(url string) string {
 	url = strings.TrimRight(url, "/")
@@ -273,110 +273,68 @@ func cloneOrUpdateRepo(repoURL string) (string, error) {
 	return repoPath, nil
 }
 
-// findBinariesInBuildPath finds all binary files in the build directory
-func findBinariesInBuildPath(buildPath string, pkg *Package) []Binary {
+// findBinariesInPath finds all binary files in the specified path
+func findBinariesInPath(searchPath string, expectedNames []string) []Binary {
 	var binaries []Binary
-	foundBinariesMap := make(map[string]Binary)
+	foundMap := make(map[string]Binary)
 
-	// Common locations where binaries might be
-	searchPaths := []string{
-		filepath.Join(buildPath, "target", "release"),
-		filepath.Join(buildPath, "target", "debug"),
-		filepath.Join(buildPath, "build"),
-		filepath.Join(buildPath, "build", "bin"),
-		filepath.Join(buildPath, "bin"),
-		filepath.Join(buildPath, "dist"),
-		buildPath,
+	if !fileExists(searchPath) {
+		return binaries
 	}
 
-	// Get expected binary names from manifest
-	expectedNames := []string{}
-	if pkg.BinaryName != "" {
-		for _, name := range strings.Split(pkg.BinaryName, ",") {
-			expectedNames = append(expectedNames, strings.TrimSpace(name))
-		}
+	entries, err := os.ReadDir(searchPath)
+	if err != nil {
+		return binaries
 	}
 
-	fmt.Printf("DEBUG: Looking for binaries: %v\n", expectedNames)
-
-	for _, searchPath := range searchPaths {
-		if !fileExists(searchPath) {
-			fmt.Printf("DEBUG: Path does not exist: %s\n", searchPath)
+	for _, entry := range entries {
+		if entry.IsDir() {
 			continue
 		}
 
-		fmt.Printf("DEBUG: Searching in %s\n", searchPath)
-
-		entries, err := os.ReadDir(searchPath)
+		itemPath := filepath.Join(searchPath, entry.Name())
+		info, err := entry.Info()
 		if err != nil {
-			fmt.Printf("DEBUG: Error reading directory: %v\n", err)
 			continue
 		}
 
-		fmt.Printf("DEBUG: Found %d items in directory\n", len(entries))
+		isExecutable := info.Mode()&0111 != 0
 
-		for _, entry := range entries {
-			if entry.IsDir() {
-				fmt.Printf("DEBUG: %s is a directory (skipping)\n", entry.Name())
+		if isExecutable {
+			// Skip common build artifacts
+			skipPatterns := []string{".d", ".rlib", ".so", ".a", ".o", ".dylib", ".dll"}
+			skip := false
+			for _, pattern := range skipPatterns {
+				if strings.HasSuffix(entry.Name(), pattern) {
+					skip = true
+					break
+				}
+			}
+			if skip {
 				continue
 			}
 
-			itemPath := filepath.Join(searchPath, entry.Name())
-			info, err := entry.Info()
-			if err != nil {
+			// Skip hidden files and build scripts
+			if strings.HasPrefix(entry.Name(), ".") {
 				continue
 			}
 
-			isExecutable := info.Mode()&0111 != 0
-
-			fmt.Printf("DEBUG: Checking %s - executable: %v, in expected: %v\n",
-				entry.Name(), isExecutable, contains(expectedNames, entry.Name()))
-
-			if isExecutable {
-				// Skip common build artifacts
-				skipPatterns := []string{".d", ".rlib", ".so", ".a", ".o", ".dylib", ".dll"}
-				skip := false
-				for _, pattern := range skipPatterns {
-					if strings.HasSuffix(entry.Name(), pattern) {
-						skip = true
-						break
-					}
-				}
-				if skip {
-					fmt.Printf("DEBUG: Skipping %s (build artifact)\n", entry.Name())
-					continue
-				}
-
-				// Skip hidden files and build scripts
-				if strings.HasPrefix(entry.Name(), ".") ||
-					entry.Name() == "build" ||
-					entry.Name() == "Makefile" ||
-					entry.Name() == "CMakeLists.txt" {
-					fmt.Printf("DEBUG: Skipping %s (hidden/build file)\n", entry.Name())
-					continue
-				}
-
-				// If expected names are specified, only include those
-				if len(expectedNames) > 0 {
-					if contains(expectedNames, entry.Name()) {
-						if _, exists := foundBinariesMap[entry.Name()]; !exists {
-							fmt.Printf("DEBUG: ✓ Found expected binary: %s\n", entry.Name())
-							foundBinariesMap[entry.Name()] = Binary{
-								Name: entry.Name(),
-								Path: itemPath,
-							}
-						}
-					} else {
-						fmt.Printf("DEBUG: ✗ Skipping %s (not in expected list)\n", entry.Name())
-					}
-				} else {
-					// No expected names, include all executables
-					if _, exists := foundBinariesMap[entry.Name()]; !exists {
-						fmt.Printf("DEBUG: Found binary: %s\n", entry.Name())
-						foundBinariesMap[entry.Name()] = Binary{
+			// If expected names are specified, only include those
+			if len(expectedNames) > 0 {
+				if contains(expectedNames, entry.Name()) {
+					if _, exists := foundMap[entry.Name()]; !exists {
+						foundMap[entry.Name()] = Binary{
 							Name: entry.Name(),
 							Path: itemPath,
 						}
+					}
+				}
+			} else {
+				// No expected names, include all executables
+				if _, exists := foundMap[entry.Name()]; !exists {
+					foundMap[entry.Name()] = Binary{
+						Name: entry.Name(),
+						Path: itemPath,
 					}
 				}
 			}
@@ -384,28 +342,63 @@ func findBinariesInBuildPath(buildPath string, pkg *Package) []Binary {
 	}
 
 	// Convert map to slice
-	for _, binary := range foundBinariesMap {
+	for _, binary := range foundMap {
 		binaries = append(binaries, binary)
 	}
 
-	fmt.Printf("DEBUG: Total binaries found: %d\n", len(binaries))
-	fmt.Printf("DEBUG: Expected to find: %d\n", len(expectedNames))
-	for _, binary := range binaries {
-		fmt.Printf("DEBUG:   - %s at %s\n", binary.Name, binary.Path)
-	}
+	return binaries
+}
 
-	// Warn if we didn't find all expected binaries
-	foundNames := make(map[string]bool)
-	for _, b := range binaries {
-		foundNames[b.Name] = true
-	}
-	for _, expected := range expectedNames {
-		if !foundNames[expected] {
-			fmt.Printf("WARNING: Expected binary not found: %s\n", expected)
+// findBuiltBinaries finds binaries after build
+func findBuiltBinaries(repoPath string, pkg *Package) ([]Binary, error) {
+	var binaries []Binary
+
+	// If explicit bin_path is provided, search there
+	if pkg.BinPath != "" {
+		searchPath := filepath.Join(repoPath, pkg.BinPath)
+		fmt.Printf("Searching for binaries in: %s\n", searchPath)
+		binaries = findBinariesInPath(searchPath, pkg.BinaryNames)
+
+		if len(binaries) > 0 {
+			return binaries, nil
 		}
 	}
 
-	return binaries
+	// Otherwise, search in common build output directories
+	buildDir := repoPath
+	if pkg.SourceDir != "" {
+		buildDir = filepath.Join(repoPath, pkg.SourceDir)
+	}
+
+	searchPaths := []string{
+		filepath.Join(buildDir, "target", "release"),
+		filepath.Join(buildDir, "target", "debug"),
+		filepath.Join(buildDir, "build"),
+		filepath.Join(buildDir, "build", "bin"),
+		filepath.Join(buildDir, "bin"),
+		filepath.Join(buildDir, "dist"),
+		buildDir,
+	}
+
+	fmt.Println("Searching for built binaries...")
+	for _, searchPath := range searchPaths {
+		found := findBinariesInPath(searchPath, pkg.BinaryNames)
+		if len(found) > 0 {
+			fmt.Printf("Found binaries in: %s\n", searchPath)
+			binaries = append(binaries, found...)
+
+			// If we found all expected binaries, stop searching
+			if len(pkg.BinaryNames) > 0 && len(binaries) >= len(pkg.BinaryNames) {
+				break
+			}
+		}
+	}
+
+	if len(binaries) == 0 {
+		return nil, fmt.Errorf("no binaries found after build")
+	}
+
+	return binaries, nil
 }
 
 // contains checks if a slice contains a string
@@ -443,7 +436,7 @@ func syncManifest() error {
 		return fmt.Errorf("failed to save manifest: %w", err)
 	}
 
-	fmt.Println("Manifest synced successfully!")
+	fmt.Println("✓ Manifest synced successfully!")
 	return nil
 }
 
@@ -465,13 +458,18 @@ func installPackage(name string) error {
 		return err
 	}
 
+	// Display package info
 	fmt.Printf("\nPackage: %s\n", pkg.Name)
-	fmt.Printf("Version: %s\n", pkg.BinaryVersion)
+	fmt.Printf("Version: %s\n", pkg.Version)
 	fmt.Printf("Description: %s\n", pkg.Description)
 	fmt.Printf("Repository: %s\n", pkg.RepoURL)
 	fmt.Printf("OS: %s\n", pkg.OSSupported)
-	fmt.Printf("Required tools: %s\n", pkg.RequiredTools)
-	fmt.Printf("Total binaries: %s\n", pkg.TotalBinInstalled)
+	if pkg.RequiredTools != "" {
+		fmt.Printf("Required tools: %s\n", pkg.RequiredTools)
+	}
+	if len(pkg.BinaryNames) > 0 {
+		fmt.Printf("Binaries: %s\n", strings.Join(pkg.BinaryNames, ", "))
+	}
 	if len(pkg.Keywords) > 0 {
 		fmt.Printf("Keywords: %s\n", strings.Join(pkg.Keywords, ", "))
 	}
@@ -486,19 +484,16 @@ func installPackage(name string) error {
 	}
 
 	// Check required tools
-	if !checkRequiredTools(pkg.RequiredTools) {
+	if pkg.RequiredTools != "" && !checkRequiredTools(pkg.RequiredTools) {
 		fmt.Fprintln(os.Stderr, "\nError: Missing required tools!")
 		fmt.Fprintln(os.Stderr, "Please install the required tools using your system package manager.")
 		return fmt.Errorf("missing required tools")
 	}
 
 	// Check if already installed
-	installedData, _ := loadInstalled()
-	for _, instPkg := range installedData.Installed {
-		if instPkg.Name == name {
-			fmt.Printf("Package '%s' is already installed. Use 'update' to update it.\n", name)
-			return nil
-		}
+	if isPackageInstalled(name) {
+		fmt.Printf("Package '%s' is already installed. Use 'update' to update it.\n", name)
+		return nil
 	}
 
 	// Clone or update the package's repository
@@ -507,184 +502,117 @@ func installPackage(name string) error {
 		return err
 	}
 
-	// Determine build path
+	// Determine where to run build commands
 	buildPath := repoPath
-	if pkg.BuildDir != "" {
-		buildPath = filepath.Join(repoPath, pkg.BuildDir)
-	} else if pkg.BinFolder != "" {
-		buildPath = filepath.Join(repoPath, pkg.BinFolder)
+	if pkg.SourceDir != "" {
+		buildPath = filepath.Join(repoPath, pkg.SourceDir)
 	}
 
-	// Remove any mv commands from build_commands
-	buildCmd := pkg.BuildCommands
-	if strings.Contains(buildCmd, "mv") && strings.Contains(buildCmd, binDir) {
-		parts := strings.Split(buildCmd, "&&")
-		if len(parts) > 0 {
-			buildCmd = strings.TrimSpace(parts[0])
-		}
+	if !fileExists(buildPath) {
+		return fmt.Errorf("source directory not found: %s", buildPath)
 	}
 
 	// Clean before building (if cargo project)
-	if strings.Contains(buildCmd, "cargo") {
+	if strings.Contains(pkg.BuildCommands, "cargo") {
 		fmt.Println("Cleaning previous build...")
 		cleanCmd := fmt.Sprintf("cd %s && cargo clean", buildPath)
 		runCommandSilent(cleanCmd)
 	}
 
-	fmt.Println("Building...")
-	cmd := fmt.Sprintf("cd %s && %s", buildPath, buildCmd)
-	if err := runCommand(cmd); err != nil {
+	// Build
+	fmt.Println("Building package...")
+	buildCmd := fmt.Sprintf("cd %s && %s", buildPath, pkg.BuildCommands)
+	if err := runCommand(buildCmd); err != nil {
 		fmt.Fprintln(os.Stderr, "Error: Build failed")
 		return err
 	}
 
-	if !fileExists(buildPath) {
-		fmt.Fprintf(os.Stderr, "Error: Build path not found: %s\n", buildPath)
-		return fmt.Errorf("build path not found")
+	// Find built binaries
+	binaries, err := findBuiltBinaries(repoPath, pkg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		return err
 	}
 
-	fmt.Printf("\nBuild path: %s\n", buildPath)
-	fmt.Println("Building package...")
+	fmt.Printf("\nFound %d binary file(s):\n", len(binaries))
+	for _, binary := range binaries {
+		fmt.Printf("  - %s at %s\n", binary.Name, binary.Path)
+	}
 
-	// Find all binaries in the build directory
-	fmt.Println("\nSearching for built binaries...")
-	foundBinaries := findBinariesInBuildPath(buildPath, pkg)
+	// Install binaries to ~/.local/bin
+	fmt.Printf("\nInstalling binaries to %s...\n", binDir)
+	var installedBinaries []string
 
-	// Check BuildDirExist - if false, we expect binaries to be found
-	// if true, the install script handles binary placement
-	if !pkg.BuildDirExist {
-		if len(foundBinaries) == 0 {
-			fmt.Fprintln(os.Stderr, "Error: No binaries found after build")
-			fmt.Fprintf(os.Stderr, "Searched in: %s\n", buildPath)
-			return fmt.Errorf("no binaries found")
+	for _, binary := range binaries {
+		src := binary.Path
+		dst := filepath.Join(binDir, binary.Name)
+
+		if !fileExists(src) {
+			fmt.Fprintf(os.Stderr, "ERROR: Source file does not exist: %s\n", src)
+			continue
 		}
 
-		fmt.Printf("Found %d binary file(s):\n", len(foundBinaries))
-		for _, binary := range foundBinaries {
-			fmt.Printf("  - %s at %s\n", binary.Name, binary.Path)
+		// Copy file
+		if err := copyFile(src, dst); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: Failed to install %s: %v\n", binary.Name, err)
+			continue
 		}
 
-		// Copy all binaries to bin_dir
-		fmt.Printf("\nInstalling binaries to %s...\n", binDir)
-		var installedBinaries []string
-
-		fmt.Printf("DEBUG: About to install %d binaries\n", len(foundBinaries))
-
-		for i, binary := range foundBinaries {
-			src := binary.Path
-			dst := filepath.Join(binDir, binary.Name)
-
-			fmt.Printf("DEBUG: [%d/%d] Copying %s -> %s\n", i+1, len(foundBinaries), src, dst)
-
-			if !fileExists(src) {
-				fmt.Fprintf(os.Stderr, "ERROR: Source file does not exist: %s\n", src)
-				continue
-			}
-
-			// Copy file
-			if err := copyFile(src, dst); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: Failed to install %s: %v\n", binary.Name, err)
-				continue
-			}
-
-			// Make executable
-			if err := os.Chmod(dst, 0755); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: Failed to make %s executable: %v\n", binary.Name, err)
-			}
-
-			installedBinaries = append(installedBinaries, dst)
-			fmt.Printf("✓ Installed: %s\n", dst)
+		// Make executable
+		if err := os.Chmod(dst, 0755); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: Failed to make %s executable: %v\n", binary.Name, err)
 		}
 
-		fmt.Printf("\nDEBUG: Final installed_binaries count: %d\n", len(installedBinaries))
+		installedBinaries = append(installedBinaries, dst)
+		fmt.Printf("  ✓ Installed: %s\n", dst)
+	}
 
-		if len(installedBinaries) == 0 {
-			fmt.Fprintln(os.Stderr, "Error: No binaries were installed")
-			return fmt.Errorf("no binaries installed")
-		}
+	if len(installedBinaries) == 0 {
+		return fmt.Errorf("no binaries were installed")
+	}
 
-		// Update installed.json
-		date := getCurrentDate()
-		installedData, _ = loadInstalled()
+	// Update installed.json
+	installedData, _ := loadInstalled()
 
-		newEntry := InstalledPackage{
-			Name:          name,
-			Version:       pkg.BinaryVersion,
-			BinaryPaths:   installedBinaries,
-			RepoPath:      repoPath,
-			InstallDate:   date,
-			TotalBinaries: len(installedBinaries),
-		}
+	newEntry := InstalledPackage{
+		Name:          name,
+		Version:       pkg.Version,
+		BinaryPaths:   installedBinaries,
+		RepoPath:      repoPath,
+		InstallDate:   getCurrentDate(),
+		TotalBinaries: len(installedBinaries),
+	}
 
-		installedData.Installed = append(installedData.Installed, newEntry)
+	installedData.Installed = append(installedData.Installed, newEntry)
 
-		if err := saveInstalled(installedData); err != nil {
-			fmt.Fprintln(os.Stderr, "Warning: Failed to update installed.json")
-		}
+	if err := saveInstalled(installedData); err != nil {
+		fmt.Fprintln(os.Stderr, "Warning: Failed to update installed.json")
+	}
 
-		fmt.Printf("\n✓ Successfully installed %s!\n", name)
-		fmt.Printf("  Version: %s\n", pkg.BinaryVersion)
-		fmt.Printf("  Repository: %s\n", pkg.RepoURL)
-		fmt.Printf("  Binaries installed: %d\n", len(installedBinaries))
-		for _, binary := range installedBinaries {
-			fmt.Printf("    - %s\n", binary)
-		}
-	} else {
-		// BuildDirExist is true - install script handles binary installation
-		fmt.Println("\nNote: This package uses an install script for binary placement.")
-		fmt.Println("Binaries should be installed by the build script.")
-
-		// Update installed.json without binary paths
-		date := getCurrentDate()
-		installedData, _ = loadInstalled()
-
-		newEntry := InstalledPackage{
-			Name:          name,
-			Version:       pkg.BinaryVersion,
-			BinaryPaths:   []string{}, // Empty as install script handles it
-			RepoPath:      repoPath,
-			InstallDate:   date,
-			TotalBinaries: 0,
-		}
-
-		installedData.Installed = append(installedData.Installed, newEntry)
-
-		if err := saveInstalled(installedData); err != nil {
-			fmt.Fprintln(os.Stderr, "Warning: Failed to update installed.json")
-		}
-
-		fmt.Printf("\n✓ Successfully installed %s!\n", name)
-		fmt.Printf("  Version: %s\n", pkg.BinaryVersion)
-		fmt.Printf("  Repository: %s\n", pkg.RepoURL)
-		fmt.Println("  Note: Binaries managed by install script")
+	fmt.Printf("\n✓ Successfully installed %s!\n", name)
+	fmt.Printf("  Version: %s\n", pkg.Version)
+	fmt.Printf("  Binaries installed: %d\n", len(installedBinaries))
+	for _, binary := range installedBinaries {
+		fmt.Printf("    - %s\n", binary)
 	}
 
 	return nil
 }
 
-// installAll installs all the package available in manifest.json
+// installAll installs all packages from manifest
 func installAll() error {
 	fmt.Println("Installing all packages from manifest...")
 
-	// Check if manifest exists
 	if !fileExists(manifestPath) {
 		fmt.Fprintf(os.Stderr, "Error: manifest.json not found at %s\n", manifestPath)
 		fmt.Fprintln(os.Stderr, "Run 'binrex sync' to download the manifest.")
 		return fmt.Errorf("manifest not found")
 	}
 
-	// Load manifest
 	manifest, err := loadManifest()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: Failed to load manifest: %v\n", err)
 		return err
-	}
-
-	// Get already installed packages
-	installedData, _ := loadInstalled()
-	installedMap := make(map[string]bool)
-	for _, pkg := range installedData.Installed {
-		installedMap[pkg.Name] = true
 	}
 
 	// Filter packages to install
@@ -693,7 +621,7 @@ func installAll() error {
 
 	for _, pkg := range manifest.Packages {
 		// Skip if already installed
-		if installedMap[pkg.Name] {
+		if isPackageInstalled(pkg.Name) {
 			fmt.Printf("Skipping %s (already installed)\n", pkg.Name)
 			continue
 		}
@@ -705,7 +633,7 @@ func installAll() error {
 		}
 
 		// Check required tools
-		if !checkRequiredTools(pkg.RequiredTools) {
+		if pkg.RequiredTools != "" && !checkRequiredTools(pkg.RequiredTools) {
 			fmt.Printf("Skipping %s (missing required tools: %s)\n", pkg.Name, pkg.RequiredTools)
 			continue
 		}
@@ -720,11 +648,11 @@ func installAll() error {
 
 	fmt.Printf("\nFound %d package(s) to install:\n", len(toInstall))
 	for _, pkg := range toInstall {
-		fmt.Printf("  - %s (%s)\n", pkg.Name, pkg.BinaryVersion)
+		fmt.Printf("  - %s (%s)\n", pkg.Name, pkg.Version)
 	}
 	fmt.Println()
 
-	// Install each package by recursively calling installPackage
+	// Install each package
 	successCount := 0
 	failCount := 0
 
@@ -732,7 +660,6 @@ func installAll() error {
 		fmt.Printf("\n[%d/%d] Installing %s...\n", i+1, len(toInstall), pkg.Name)
 		fmt.Println(strings.Repeat("=", 60))
 
-		// Recursively call installPackage for each package in manifest
 		if err := installPackage(pkg.Name); err != nil {
 			fmt.Fprintf(os.Stderr, "✗ Failed to install %s: %v\n", pkg.Name, err)
 			failCount++
@@ -811,11 +738,11 @@ func removePackage(name string) error {
 			if err := os.Remove(binaryPath); err != nil {
 				fmt.Fprintf(os.Stderr, "Error removing binary %s: %v\n", binaryPath, err)
 			} else {
-				fmt.Printf("✓ Removed binary: %s\n", binaryPath)
+				fmt.Printf("  ✓ Removed binary: %s\n", binaryPath)
 				removedCount++
 			}
 		} else {
-			fmt.Printf("Binary not found: %s\n", binaryPath)
+			fmt.Printf("  Binary not found: %s\n", binaryPath)
 		}
 	}
 
@@ -823,10 +750,10 @@ func removePackage(name string) error {
 	installedData.Installed = remainingPackages
 	if err := saveInstalled(installedData); err != nil {
 		fmt.Fprintln(os.Stderr, "Warning: Failed to update installed.json")
-	} else {
-		fmt.Printf("\n✓ Package '%s' removed successfully.\n", name)
-		fmt.Printf("  Binaries removed: %d/%d\n", removedCount, len(pkgToRemove.BinaryPaths))
 	}
+
+	fmt.Printf("\n✓ Package '%s' removed successfully.\n", name)
+	fmt.Printf("  Binaries removed: %d/%d\n", removedCount, len(pkgToRemove.BinaryPaths))
 
 	return nil
 }
@@ -834,7 +761,7 @@ func removePackage(name string) error {
 // listPackages lists all installed packages
 func listPackages() {
 	fmt.Println("Installed packages:")
-	fmt.Println("-------------------")
+	fmt.Println(strings.Repeat("-", 60))
 
 	installedData, _ := loadInstalled()
 
@@ -842,12 +769,13 @@ func listPackages() {
 		fmt.Println("  (none)")
 	} else {
 		for _, pkg := range installedData.Installed {
-			fmt.Printf("  • %s (v%s)\n", pkg.Name, pkg.Version)
+			fmt.Printf("\n  • %s (v%s)\n", pkg.Name, pkg.Version)
 			fmt.Printf("    Binaries: %d\n", pkg.TotalBinaries)
 			fmt.Printf("    Installed: %s\n", pkg.InstallDate)
 			fmt.Printf("    Repo: %s\n", pkg.RepoPath)
 
 			if len(pkg.BinaryPaths) > 0 {
+				fmt.Println("    Binary paths:")
 				for _, bp := range pkg.BinaryPaths {
 					fmt.Printf("      - %s\n", bp)
 				}
@@ -862,17 +790,7 @@ func listPackages() {
 func updatePackage(name string) error {
 	fmt.Printf("Updating package: %s\n", name)
 
-	installedData, _ := loadInstalled()
-	found := false
-
-	for _, pkg := range installedData.Installed {
-		if pkg.Name == name {
-			found = true
-			break
-		}
-	}
-
-	if !found {
+	if !isPackageInstalled(name) {
 		fmt.Fprintf(os.Stderr, "Package '%s' is not installed. Installing new...\n", name)
 		return installPackage(name)
 	}
@@ -886,7 +804,9 @@ func updatePackage(name string) error {
 
 	// Remove old version
 	fmt.Println("Removing old version...")
-	removePackage(name)
+	if err := removePackage(name); err != nil {
+		return err
+	}
 
 	// Update repository
 	repoPath := getRepoCachePath(manifestPkg.RepoURL)
@@ -904,7 +824,7 @@ func updatePackage(name string) error {
 // searchPackages searches for packages in the manifest
 func searchPackages(keyword string) {
 	fmt.Printf("Searching for: %s\n", keyword)
-	fmt.Println("-------------------")
+	fmt.Println(strings.Repeat("-", 60))
 
 	if !fileExists(manifestPath) {
 		fmt.Fprintln(os.Stderr, "Error: manifest.json not found")
@@ -926,12 +846,12 @@ func searchPackages(keyword string) {
 			pkg.Name, pkg.Description, strings.Join(pkg.Keywords, " ")))
 
 		if strings.Contains(searchText, keywordLower) {
-			fmt.Printf("  • %s", pkg.Name)
+			fmt.Printf("\n  • %s", pkg.Name)
 			if pkg.Description != "" {
 				fmt.Printf(" - %s", pkg.Description)
 			}
-			if pkg.BinaryVersion != "" {
-				fmt.Printf(" (v%s)", pkg.BinaryVersion)
+			if pkg.Version != "" {
+				fmt.Printf(" (v%s)", pkg.Version)
 			}
 			fmt.Println()
 
@@ -952,16 +872,17 @@ func searchPackages(keyword string) {
 // printUsage prints usage information
 func printUsage(prog string) {
 	fmt.Println("Binrex - Simple Binary Package Manager\n")
-	fmt.Printf("Usage: %s <command> [package_name]\n\n", prog)
+	fmt.Printf("Usage: %s <command> [arguments]\n\n", prog)
 	fmt.Println("Commands:")
-	fmt.Println("  sync            - Sync manifest from GitHub")
-	fmt.Println("  install <name>  - Install a package")
-	fmt.Println("  install -a  - Installs all packages in manifest.json")
-	fmt.Println("  remove <name>   - Remove a package")
-	fmt.Println("  list            - List installed packages")
-	fmt.Println("  update <name>   - Update a package")
-	fmt.Println("  search <query>  - Search for packages")
-	fmt.Println("  help            - Show this help")
+	fmt.Println("  sync              - Sync manifest from GitHub")
+	fmt.Println("  install <name>    - Install a package")
+	fmt.Println("  install --all     - Install all packages in manifest")
+	fmt.Println("  remove <name>     - Remove a package")
+	fmt.Println("  list              - List installed packages")
+	fmt.Println("  update <name>     - Update a package")
+	fmt.Println("  search <query>    - Search for packages")
+	fmt.Println("  version           - Show version")
+	fmt.Println("  help              - Show this help")
 }
 
 func main() {
@@ -994,7 +915,7 @@ func run() int {
 		}
 		return 0
 	case "version":
-		fmt.Println("0.1.4")
+		fmt.Println("0.1.6")
 	case "install":
 		if len(os.Args) < 3 {
 			fmt.Fprintln(os.Stderr, "Error: package name required")
