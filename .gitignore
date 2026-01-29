@@ -1,4 +1,5 @@
 .idea/
+binrex
 bins/**/target
 bins/**/node_modules
 bins/**/**/node_modules

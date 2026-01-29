@@ -30,19 +30,19 @@ class ScreenState:
 
 class BaseEffect:
     """Base class for screensaver effects"""
-# stdscr is from curses lib,
+    # stdscr is from curses lib,
     def __init__(self, stdscr):
         self.stdscr = stdscr
         self.setup_screen()
         self.setup_colors()
-# curs_set does the apperance of cursor
-# nodelay specifies delay mode is a bool
-#  timeout guess what it does geniues?
+    # curs_set does the apperance of cursor
+    # nodelay specifies delay mode is a bool
+    #  timeout guess what it does geniues?
     def setup_screen(self):
         curses.curs_set(0)
         self.stdscr.nodelay(1)
         self.stdscr.timeout(30)
-# fk it just read https://pubs.opengroup.org/onlinepubs/007908799/xcurses/curses.h.html
+    # fk it just read https://pubs.opengroup.org/onlinepubs/007908799/xcurses/curses.h.html
     def setup_colors(self):
         curses.start_color()
         for i in range(1, 8):
@@ -298,7 +298,7 @@ class SpiralGalaxy(BaseEffect):
             self.stdscr.refresh()
             angle += 0.05
 
-
+# TODO: Need to improve fire effect to make it look realistic, kinda look like a chump
 class FireEffect(BaseEffect):
     """Realistic fire simulation with improved physics"""
 
@@ -715,7 +715,8 @@ EFFECTS: Dict[str, type] = {
     # 'perlin': PerlinNoise,
 }
 
-
+#  TODO:
+# Add mandelbrot, perlin
 def main():
     parser = argparse.ArgumentParser(
         description="Terminal Screensaver",
@@ -725,11 +726,10 @@ Available modes:
   matrix      - Matrix-style digital rain
   plasma      - Plasma wave interference patterns
   spiral      - Rotating spiral galaxy
-  fire        - Realistic fire simulation
-  mandelbrot  - Animated Mandelbrot fractal
+  fire        - Realistic fire simulation (currenlty in work)
   julia       - Animated Julia set fractal
+  voronoi     - Bunch of colored blobs
   lorenz      - Lorenz attractor (chaos theory)
-  perlin      - Perlin noise flow field
 
 Matrix variants (use with --matrix-variant):
   classic     - Classic green Matrix rain (default)
