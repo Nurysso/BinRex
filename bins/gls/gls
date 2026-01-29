@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# gls - Simple and easy git ls-fles (part of BinRex)
+# Copyright (C) 2026 Dawood Khan
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Maintainer Dawood (Nurysso) contact - nurysso [at] proton.me
+
 
 import os
 import sys
@@ -134,10 +140,10 @@ def list_files_ls(directory='.', gitignore_path='.gitignore', show_ignored=False
     # Collect all items
     for entry in sorted(os.listdir(directory)):
         if not all_files and entry.startswith('.') and entry not in ['.gitignore']:
-            continue       
+            continue
         full_path = os.path.join(directory, entry)
         is_dir = os.path.isdir(full_path)
-        ignored = is_ignored(entry, patterns)  
+        ignored = is_ignored(entry, patterns)
         if ignored and not show_ignored:
             continue
         try:
@@ -164,7 +170,7 @@ def list_files_ls(directory='.', gitignore_path='.gitignore', show_ignored=False
             name = colorize(name, Colors.EXECUTABLE, use_color)
         elif item['ignored']:
             name = colorize(name, Colors.IGNORED, use_color)
-        
+
         if item['ignored']:
             suffix = colorize(' [IGNORED]', Colors.IGNORED, use_color)
         else:
@@ -181,14 +187,14 @@ def print_tree(directory='.', gitignore_path='.gitignore', show_ignored=False,
                verbose=False, use_color=True, max_depth=None, prefix='', current_depth=0):
     """Print directory tree structure."""
     patterns = parse_gitignore(gitignore_path)
-    
+
     if current_depth == 0 and verbose:
         print(colorize(f"Patterns from .gitignore:", Colors.CYAN, use_color))
         for p in patterns:
             print(f"  - {p}")
         print()
         print(colorize(directory, Colors.BOLD + Colors.BLUE, use_color))
-    
+
     if max_depth is not None and current_depth >= max_depth:
         return
 
@@ -199,31 +205,31 @@ def print_tree(directory='.', gitignore_path='.gitignore', show_ignored=False,
 
     # Filter out .git directory
     entries = [e for e in entries if e != '.git']
-    
+
     # Separate directories and files
     dirs = []
     files = []
-    
+
     for entry in entries:
         full_path = os.path.join(directory, entry)
         rel_path = os.path.relpath(full_path, '.')
-        
+
         if os.path.isdir(full_path):
             dirs.append((entry, rel_path))
         else:
             files.append((entry, rel_path))
-    
+
     all_items = dirs + files
-    
+
     for i, (entry, rel_path) in enumerate(all_items):
         is_last = i == len(all_items) - 1
         full_path = os.path.join(directory, entry)
         is_dir = os.path.isdir(full_path)
         ignored = is_ignored(rel_path, patterns)
-        
+
         if ignored and not show_ignored:
             continue
-        
+
         # Tree characters
         if is_last:
             connector = '└── '
@@ -231,7 +237,7 @@ def print_tree(directory='.', gitignore_path='.gitignore', show_ignored=False,
         else:
             connector = '├── '
             extension = '│   '
-        
+
         # Format name with color
         name = entry
         if is_dir:
@@ -240,11 +246,11 @@ def print_tree(directory='.', gitignore_path='.gitignore', show_ignored=False,
             name = colorize(name, Colors.EXECUTABLE, use_color)
         elif ignored:
             name = colorize(name, Colors.IGNORED, use_color)
-        
+
         suffix = ''
         if ignored:
             suffix = colorize(' [IGNORED]', Colors.IGNORED, use_color)
-        
+
         # Add size info if verbose
         if verbose and not is_dir:
             try:
@@ -253,12 +259,12 @@ def print_tree(directory='.', gitignore_path='.gitignore', show_ignored=False,
                 suffix = size_str + suffix
             except OSError:
                 pass
-        
+
         print(f"{prefix}{connector}{name}{suffix}")
-        
+
         # Recurse into directories
         if is_dir and not ignored:
-            print_tree(full_path, gitignore_path, show_ignored, verbose, 
+            print_tree(full_path, gitignore_path, show_ignored, verbose,
                       use_color, max_depth, prefix + extension, current_depth + 1)
 
 def list_files_walk(directory='.', gitignore_path='.gitignore', show_ignored=False,
@@ -310,12 +316,12 @@ def list_files_walk(directory='.', gitignore_path='.gitignore', show_ignored=Fal
             rel_path = os.path.join(rel_root, f) if rel_root else f
             full_path = os.path.join(root, f)
             ignored = is_ignored(rel_path, patterns)
-            
+
             if ignored:
                 if show_ignored:
                     file_name = colorize(rel_path, Colors.IGNORED, use_color)
                     label = colorize("[IGNORED]", Colors.IGNORED, use_color)
-                    
+
                     if verbose:
                         try:
                             size = os.path.getsize(full_path)
@@ -330,7 +336,7 @@ def list_files_walk(directory='.', gitignore_path='.gitignore', show_ignored=Fal
                     file_name = colorize(rel_path, Colors.EXECUTABLE, use_color)
                 else:
                     file_name = rel_path
-                
+
                 if verbose:
                     try:
                         size = os.path.getsize(full_path)
@@ -348,6 +354,7 @@ def main():
         epilog='''
 Examples:
   %(prog)s                    # List all non-ignored files
+  %(prog)s -V                 # Shows gls verson duh
   %(prog)s -v                 # Verbose output with file sizes
   %(prog)s -i                 # Show ignored files
   %(prog)s --ls               # List files in current directory only (ls-like)
@@ -356,9 +363,11 @@ Examples:
   %(prog)s --no-color         # Disable colored output
         '''
     )
-    
+
     parser.add_argument('-v', '--verbose', action='store_true',
                        help='Verbose output with file sizes and timestamps')
+    parser.add_argument('-V', '--version', action='version',
+                    version='gls v0.9.2', help='Shows version Genius')
     parser.add_argument('-i', '--ignored', action='store_true',
                        help='Show ignored files')
     parser.add_argument('-a', '--all', action='store_true',
@@ -375,20 +384,20 @@ Examples:
                        help='Path to .gitignore file (default: .gitignore)')
     parser.add_argument('directory', nargs='?', default='.',
                        help='Directory to list (default: current directory)')
-    
+
     args = parser.parse_args()
-    
+
     # Disable color if not a TTY or if --no-color is specified
     use_color = sys.stdout.isatty() and not args.no_color
-    
+
     # Check if directory exists
     if not os.path.isdir(args.directory):
         print(f"Error: '{args.directory}' is not a valid directory", file=sys.stderr)
         sys.exit(1)
-    
+
     # Execute based on mode
     if args.ls:
-        list_files_ls(args.directory, args.gitignore, args.ignored, 
+        list_files_ls(args.directory, args.gitignore, args.ignored,
                      args.verbose, use_color, args.all)
     elif args.tree:
         print_tree(args.directory, args.gitignore, args.ignored,

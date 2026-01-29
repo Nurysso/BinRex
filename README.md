@@ -13,11 +13,14 @@ keeps my old code from rotting away in forgotten repos, plus i actually use some
 ## what's in here
 
 - **websii** - web server that shows your files in a browser, hot reloads when stuff changes
-- **file_convert** - Shell script that just wraps ffmpeg to convert files
+- **konvert** - Shell script that just wraps ffmpeg to convert files
 - **xtrat** - Extracts compressed files. all types. you know the drill.
 - **vanish** - rm but with cache, has a TUI you can customize
 - **tyr** - Uses ML to organize your files (because why not) build in rust lets GOOOO...
 - **sUpd** - Updates your system(no matter the distro).
+- **ggg** - Collection of animations
+- **poto** - Simple and fast Gallery app for linux
+- **gls** - Simple and easy Git ls-files with tree and normal ls command feature
 
 ## why tho
 

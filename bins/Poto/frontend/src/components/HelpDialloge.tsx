@@ -1,4 +1,5 @@
-// components/HelpDialog.tsx
+// This file taken from shadcn its not LICENSED under this project
+
 import React, { useState, useEffect } from 'react';
 import { marked } from 'marked';
 import { X, BookOpen } from 'lucide-react';
@@ -15,15 +16,15 @@ export default function HelpDialog({ isOpen, onClose, isDark = false }: HelpDial
   useEffect(() => {
     if (isOpen) {
       fetch('Public/docs/config.md')
-        .then(res => res.text())
-        .then(async text => {
+        .then((res) => res.text())
+        .then(async (text) => {
           const html = await marked.parse(text, {
             breaks: true,
             gfm: true,
           });
           setHtmlContent(html);
         })
-        .catch(err => console.error('Failed to load help:', err));
+        .catch((err) => console.error('Failed to load help:', err));
     }
   }, [isOpen]);
 
@@ -31,9 +32,13 @@ export default function HelpDialog({ isOpen, onClose, isDark = false }: HelpDial
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className={`w-full max-w-4xl max-h-[90vh] ${isDark ? 'bg-gray-900' : 'bg-white'} rounded-2xl shadow-2xl flex flex-col`}>
+      <div
+        className={`w-full max-w-4xl max-h-[90vh] ${isDark ? 'bg-gray-900' : 'bg-white'} rounded-2xl shadow-2xl flex flex-col`}
+      >
         {/* Header */}
-        <div className={`flex items-center justify-between p-6 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+        <div
+          className={`flex items-center justify-between p-6 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}
+        >
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center">
               <BookOpen size={20} className="text-white" />

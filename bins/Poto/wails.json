@@ -1,6 +1,6 @@
 {
   "name": "Poto",
-  "outputfilename": "Poto",
+  "outputfilename": "poto",
   "frontend:install": "pnpm install",
   "frontend:build": "pnpm run build",
   "frontend:dev:watcher": "pnpm run dev",

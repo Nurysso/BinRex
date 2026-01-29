@@ -1,15 +1,18 @@
+// Copyright (C) 2026 Dawood Khan
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package main
 
 import (
-	"context"
 	"bytes"
+	"context"
 	"encoding/base64"
 	"fmt"
 	"image"
+	"image/draw"
 	"image/gif"
 	"image/jpeg"
 	"image/png"
-	"image/draw"
 	"io"
 	"os"
 	"os/exec"
@@ -20,25 +23,25 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
-	"golang.org/x/image/bmp"
-	"golang.org/x/image/webp"
-	"golang.org/x/image/tiff"
 	"github.com/nfnt/resize"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"golang.org/x/image/bmp"
+	"golang.org/x/image/tiff"
+	"golang.org/x/image/webp"
 )
 
 type ScannerConfig struct {
-	ScanDirectories     []string          `toml:"scan_directories" json:"scan_directories"`
-	ExcludedDirectories []string          `toml:"excluded_directories" json:"excluded_directories"`
-	IgnorePatterns      []string          `toml:"ignore_patterns" json:"ignore_patterns"`
-	IgnoreHidden        bool              `toml:"ignore_hidden" json:"ignore_hidden"`
+	ScanDirectories     []string              `toml:"scan_directories" json:"scan_directories"`
+	ExcludedDirectories []string              `toml:"excluded_directories" json:"excluded_directories"`
+	IgnorePatterns      []string              `toml:"ignore_patterns" json:"ignore_patterns"`
+	IgnoreHidden        bool                  `toml:"ignore_hidden" json:"ignore_hidden"`
 	PerFolderRules      map[string]FolderRule `toml:"per_folder_rules" json:"per_folder_rules"`
 }
 
 type FolderRule struct {
-	AllowedSubfolders   []string `toml:"allowed_subfolders" json:"allowed_subfolders"`
-	BlockedSubfolders   []string `toml:"blocked_subfolders" json:"blocked_subfolders"`
-	ScanRecursively     bool     `toml:"scan_recursively" json:"scan_recursively"`
+	AllowedSubfolders []string `toml:"allowed_subfolders" json:"allowed_subfolders"`
+	BlockedSubfolders []string `toml:"blocked_subfolders" json:"blocked_subfolders"`
+	ScanRecursively   bool     `toml:"scan_recursively" json:"scan_recursively"`
 }
 
 type PreviewConfig struct {
@@ -65,11 +68,11 @@ type Config struct {
 	Preview     PreviewConfig     `toml:"preview" json:"preview"`
 	Video       VideoConfig       `toml:"video" json:"video"`
 	Performance PerformanceConfig `toml:"performance" json:"performance"`
-	Look		LookConfig		`toml:"look" json:"look"`
+	Look        LookConfig        `toml:"look" json:"look"`
 }
 
 type LookConfig struct {
-	Theme	string				`toml:"theme" json:"theme"`
+	Theme string `toml:"theme" json:"theme"`
 }
 
 type App struct {
@@ -80,11 +83,11 @@ type App struct {
 	config   Config
 
 	// Optimized data structures
-	mediaDB      map[string]*MediaFile  // path -> media (O(1) lookup)
-	folderIndex  map[string][]string    // folder -> [paths] (O(1) folder lookup)
-	typeIndex    map[string][]string    // type -> [paths] (O(1) type lookup)
-	dateIndex    []string               // sorted by date (binary search)
-	dbMu         sync.RWMutex
+	mediaDB     map[string]*MediaFile // path -> media (O(1) lookup)
+	folderIndex map[string][]string   // folder -> [paths] (O(1) folder lookup)
+	typeIndex   map[string][]string   // type -> [paths] (O(1) type lookup)
+	dateIndex   []string              // sorted by date (binary search)
+	dbMu        sync.RWMutex
 
 	autoScanDone atomic.Bool
 }

@@ -1,5 +1,27 @@
 //$GOROOT/bin/go run $0 $@ ; exit
 
+// BinRex - A simple cross-platform package manager
+// Copyright (C) 2026 Dawood Khan
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+// Binrex was created so that it be easy for me to install my tools in new environments but you can use it too <wink emoji>
+
+// TODO:
+// Sync to custom url instead of default binrex repo so that other seting up new system flow becomes
+//
+//	sync to specific json and install all the tools needed
 package main
 
 import (

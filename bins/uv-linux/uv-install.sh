@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# just a wrapper script for the  https://astral.sh/uv/install.sh this file is under MIT license
+
+
 # check if uv is already installed
 if command -v uv &> /dev/null; then
     echo "uv already installed"

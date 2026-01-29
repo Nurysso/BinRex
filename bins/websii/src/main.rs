@@ -1,3 +1,21 @@
+//  Websii, websii-server - Browser based file server (part of BinRex)
+//  Copyright (C) 2026 Dawood Khan
+//
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License as published by
+//  the Free Software Foundation, either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+//  GNU General Public License for more details.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+//  Maintainer Dawood (Nurysso) contact - nurysso [at] proton.me
+
 use crossterm::{
     event::{self, Event, KeyCode, KeyEventKind},
     execute,
@@ -18,6 +36,7 @@ use std::{
     path::{Path, PathBuf},
     process::{Child, Command as ProcessCommand, Stdio},
 };
+use clap::Parser;
 
 mod ipc;
 use ipc::{Command, Response as IpcResponse};
@@ -31,6 +50,7 @@ struct App {
     server_url: String,
     server_port: u16,
     logs: VecDeque<String>,
+    auto_start_server: bool,
 }
 
 struct DirItem {
@@ -40,8 +60,20 @@ struct DirItem {
 }
 
 impl App {
-    fn new() -> io::Result<Self> {
-        let current_path = std::env::current_dir()?;
+    fn new(starting_path: Option<PathBuf>, port: u16, auto_start: bool) -> io::Result<Self> {
+        let current_path = if let Some(path) = starting_path {
+            if path.is_dir() {
+                path
+            } else {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    format!("Path is not a directory: {}", path.display()),
+                ));
+            }
+        } else {
+            std::env::current_dir()?
+        };
+
         let items = Self::read_directory(&current_path)?;
 
         Ok(Self {
@@ -50,9 +82,10 @@ impl App {
             selected: 0,
             server_process: None,
             server_connected: false,
-            server_url: String::from("http://localhost:3000"),
-            server_port: 3000,
+            server_url: format!("http://localhost:{}", port),
+            server_port: port,
             logs: VecDeque::new(),
+            auto_start_server: auto_start,
         })
     }
 
@@ -216,7 +249,7 @@ impl App {
                 if result.success {
                     self.server_connected = true;
                     self.add_log(format!("✓ {}", result.message));
-                    self.add_log("Access at: http://localhost:3000/".to_string());
+                    self.add_log(format!("Access at: http://localhost:{}/", self.server_port));
                 } else {
                     self.add_log(format!("✗ {}", result.message));
                 }
@@ -297,7 +330,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         .iter()
         .enumerate()
         .map(|(i, item)| {
-            let icon = if item.is_dir { "" } else { "" };
+            let icon = if item.is_dir { "📁" } else { "📄" };
             let content = format!("{} {}", icon, item.name);
 
             let style = if i == app.selected {
@@ -315,7 +348,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     let list = List::new(items).block(
         Block::default()
             .borders(Borders::ALL)
-            .title(format!(" {}", app.current_path.display())),
+            .title(format!(" 📂 {}", app.current_path.display())),
     );
     f.render_widget(list, middle_chunks[0]);
 
@@ -338,23 +371,23 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         .collect();
 
     let logs_widget = Paragraph::new(log_items)
-        .block(Block::default().borders(Borders::ALL).title("Logs"))
+        .block(Block::default().borders(Borders::ALL).title("📋 Logs"))
         .wrap(Wrap { trim: true });
     f.render_widget(logs_widget, middle_chunks[1]);
 
     // Footer
     let server_status = if app.server_connected {
-        format!("Server: http://localhost:{} ✓", app.server_port)
+        format!("🟢 Server: http://localhost:{}", app.server_port)
     } else {
-        "Server: Not Running".to_string()
+        "🔴 Server: Not Running".to_string()
     };
 
     let selected_item = app.items.get(app.selected);
     let item_type = if let Some(item) = selected_item {
         if item.is_dir {
-            " Dir"
+            "📁 Dir"
         } else {
-            " File"
+            "📄 File"
         }
     } else {
         ""
@@ -388,16 +421,25 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     f.render_widget(footer, chunks[2]);
 }
 
-async fn run_app() -> io::Result<()> {
+async fn run_app(cli: Cli) -> io::Result<()> {
     enable_raw_mode()?;
     let mut stdout = stdout();
     execute!(stdout, EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let mut app = App::new()?;
+    let mut app = App::new(cli.path, cli.port, cli.auto_start)?;
     app.add_log("Websii File Manager started".to_string());
-    app.add_log("Press 'S' to start the integrated server".to_string());
+
+    if cli.auto_start {
+        app.add_log("Auto-starting server...".to_string());
+        if let Err(e) = app.start_server() {
+            app.add_log(format!("✗ Failed to auto-start server: {}", e));
+        }
+    } else {
+        app.add_log("Press 'S' to start the integrated server".to_string());
+    }
+
     app.add_log("Press 'P' to push current directory".to_string());
     app.add_log("Press 'F' to push selected file directly".to_string());
 
@@ -473,7 +515,26 @@ async fn run_app() -> io::Result<()> {
     result
 }
 
+#[derive(Parser)]
+#[command(name = "Websii")]
+#[command(version = "0.2.5")]
+#[command(about = "Browser-based file server with TUI file manager", long_about = None)]
+struct Cli {
+    /// Starting directory path (defaults to current directory)
+    #[arg(short = 'd', long, value_name = "PATH")]
+    path: Option<PathBuf>,
+
+    /// Port number for the web server
+    #[arg(short = 'p', long, default_value_t = 3000, value_name = "PORT")]
+    port: u16,
+
+    /// Automatically start the server on launch
+    #[arg(short = 'a', long)]
+    auto_start: bool,
+}
+
 #[tokio::main]
 async fn main() -> io::Result<()> {
-    run_app().await
+    let cli = Cli::parse();
+    run_app(cli).await
 }

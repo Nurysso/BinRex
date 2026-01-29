@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+
+# ggg - terminal animations (part of BinRex)
+# Copyright (C) 2026 Dawood Khan
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Maintainer Dawood (Nurysso) contact - nurysso [at] proton.me
+
 """
 Terminal Screensaver
 A collection of mathematically-inspired visual effects for the terminal
@@ -738,6 +745,8 @@ Matrix variants (use with --matrix-variant):
   mixed       - Mix of ASCII and Japanese
         """,
     )
+    parser.add_argument('-V', '--version', action='version',
+                    version='ggg is at v0.1.5', help='Shows version Genius')
     parser.add_argument(
         "--mode",
         "-m",

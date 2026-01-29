@@ -1,4 +1,6 @@
 #! /bin/bash
+# Copyright (C) 2026 Dawood Khan
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 echo -e "Start running the script..."
 echo -e "Current Go version: \c"

@@ -1,4 +1,13 @@
 #!/bin/bash
+
+
+# Sysup - Interactive multi distro updater (part of BinRex)
+# Copyright (C) 2026 Dawood Khan
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Maintainer Dawood (Nurysso) contact - nurysso [at] proton.me
+
+
 # Hecate System Updater - Multi-distro Linux Update Script
 # Supports: Arch Linux, Fedora, Ubuntu/Debian
 
@@ -13,6 +22,7 @@ CYAN='\033[0;36m'
 MAGENTA='\033[0;35m'
 BOLD='\033[1m'
 NC='\033[0m'
+VERSION="0.7.1"
 
 # Configuration
 CONFIG_DIR="$HOME/.config/"
@@ -449,6 +459,22 @@ _displaySummary() {
   fi
 }
 
+show_help() {
+    # Header with a bit of flair
+    gum style --foreground 212 --bold --underline "Konvert CLI"
+
+    # Usage section using Markdown formatting
+    gum format "
+**Usage:** \`$(basename "$0")\`
+
+**All in one place to update your $DISTRO system.**
+
+### Options:
+  - \`-h, --help\`      Show this help message and exit
+  - \`-v, --version\`   Show version information and exit
+  - \`$HOME/.config/sysup.conf\`   Edit this file to customize working
+"
+}
 # Main execution
 main() {
   # Detect distribution first
@@ -459,6 +485,27 @@ main() {
     echo -e "${RED}✗${NC} Don't run this script as root"
     exit 1
   fi
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -h|--help)
+                show_help
+                exit 0
+                ;;
+            -v|--version)
+                echo "Sysup is at v$VERSION"
+                exit 0
+                ;;
+            -*) # Catch unknown options
+                echo "Error: Unknown option $1"
+                show_help
+                exit 1
+                ;;
+            *) # This is our positional argument (the path)
+                path="$1"
+                shift # Move past the argument
+                ;;
+        esac
+    done
 
   # Clear screen and show header
   clear
@@ -471,7 +518,7 @@ main() {
     echo -e "${BOLD}${MAGENTA}"
     echo "╔═══════════════════════════════════════════╗"
     echo "║                                           ║"
-    echo "║          HECATE SYSTEM UPDATER            ║"
+    echo "║          SYSTEM UPDATER                   ║"
     echo "║                                           ║"
     echo "╚═══════════════════════════════════════════╝"
     echo -e "${NC}\n"

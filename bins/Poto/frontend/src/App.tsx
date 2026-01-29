@@ -1,3 +1,8 @@
+// Copyright (C) 2026 Dawood Khan
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+// Maintainer Dawood (Nurysso) contact - nurysso [at] proton.me
+
 import { useState, useEffect } from 'react';
 import {
   Folder,

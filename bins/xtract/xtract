@@ -1,38 +1,37 @@
-#!/usr/bin/env bash
-
-# xtrat - extract compressed files
+# xtrat - extract compressed files (part of BinRex)
 # A universal archive extraction utility
+# Copyright (C) 2026 Dawood Khan
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Maintainer Dawood (Nurysso) contact - nurysso [at] proton.me
+
 
 set -e  # Exit on error
+VERSION="0.3.2"
 
 show_help() {
-    cat << 'EOF'
-xtrat - extract compressed files
-
-USAGE:
-    xtrat [OPTIONS] <file>
-
-OPTIONS:
-    -h, --help      Show this help message
-    -l, --list      List contents without extracting
-    -v, --verbose   Show extraction progress
-    -d, --dir DIR   Extract to specified directory
-
-SUPPORTED FORMATS:
-    .tar.bz2, .tbz2    bzip2 compressed tar
-    .tar.gz, .tgz      gzip compressed tar
-    .tar.xz            xz compressed tar
-    .tar.zst           zstd compressed tar
-    .tar               uncompressed tar
-    .bz2               bzip2 compressed
-    .gz                gzip compressed
-    .xz                xz compressed
-    .zst               zstd compressed
-    .zip               zip archive
-    .rar               rar archive
-    .7z                7z archive
-    .Z                 compress format
-EOF
+    gum style --foreground 250 --margin "0 2" "xtrat - extract compressed files"
+    gum style --foreground 250 --margin "0 2" "USAGE:"
+    gum style --foreground 250 --margin "0 2" "    xtrat [OPTIONS] <file>"
+    gum style --foreground 250 --margin "0 2" "OPTIONS:"
+    gum style --foreground 250 --margin "0 2" "    -h, --help      Show this help message"
+    gum style --foreground 250 --margin "0 2" "    -l, --list      List contents without extracting"
+    gum style --foreground 250 --margin "0 2" "    -v, --verbose   Show extraction progress"
+    gum style --foreground 250 --margin "0 2" "    -d, --dir DIR   Extract to specified directory"
+    gum style --foreground 250 --margin "0 2" "SUPPORTED FORMATS:"
+    gum style --foreground 250 --margin "0 2" "    .tar.bz2, .tbz2  bzip2 compressed tar"
+    gum style --foreground 250 --margin "0 2" "    .tar.gz, .tgz    gzip compressed tar"
+    gum style --foreground 250 --margin "0 2" "    .tar.xz          xz compressed tar"
+    gum style --foreground 250 --margin "0 2" "    .tar.zst         zstd compressed tar"
+    gum style --foreground 250 --margin "0 2" "    .tar             uncompressed tar"
+    gum style --foreground 250 --margin "0 2" "    .bz2             bzip2 compressed"
+    gum style --foreground 250 --margin "0 2" "    .gz              gzip compressed"
+    gum style --foreground 250 --margin "0 2" "    .xz              xz compressed"
+    gum style --foreground 250 --margin "0 2" "    .zst             zstd compressed"
+    gum style --foreground 250 --margin "0 2" "    .zip             zip archive"
+    gum style --foreground 250 --margin "0 2" "    .rar             rar archive"
+    gum style --foreground 250 --margin "0 2" "    .7z              7z archive"
+    gum style --foreground 250 --margin "0 2" "    .Z               compress format"
 }
 
 # Main function
@@ -57,8 +56,8 @@ main() {
                 verbose="v"
                 shift
                 ;;
-            version)
-            echo "0.3.1"
+            -V| --version)
+            echo "0.3.2"
             exit 0
             ;;
             -d|--dir)

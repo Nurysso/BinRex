@@ -13,6 +13,7 @@ path = "src/server_bin.rs"
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
+clap = { version = "4.0", features = ["derive"] }
 axum = "0.7"
 ratatui = "0.26"
 crossterm = "0.27"
