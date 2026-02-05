@@ -135,7 +135,7 @@
       "description": "Simple git ls-files",
       "keywords": ["System", "Other"],
       "os_supported": "linux, mac,windows",
-      "required_tools": "Python3, git ",
+      "required_tools": "python3, git ",
       "total_bin_installed": "1",
       "build_commands": "echo moving",
       "Install_size": "16K"
