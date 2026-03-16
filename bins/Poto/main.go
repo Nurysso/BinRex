@@ -30,12 +30,13 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
-const version = "0.2.1"
+const version = "0.2.4"
 
 func main() {
 	// Define flags
 	showVersion := flag.Bool("v", false, "Show version information")
 	showHelp := flag.Bool("h", false, "Show help message")
+	sudoMode := flag.Bool("sudo", false, "Ignore config restrictions and scan any folder")
 
 	// Parse flags
 	flag.Parse()
@@ -52,14 +53,15 @@ func main() {
 		fmt.Println("\nUsage:")
 		fmt.Println("  poto [OPTIONS]")
 		fmt.Println("\nOptions:")
-		fmt.Println("  -h    Show this help message")
-		fmt.Println("  -v    Show version information")
+		fmt.Println("  -h       Show this help message")
+		fmt.Println("  -v       Show version information")
+		fmt.Println("  --sudo   Ignore config folder restrictions and allow scanning any path")
 		// fmt.Println("\nMaintainer: Dawood (Nurysso) <nurysso@proton.me>")
 		os.Exit(0)
 	}
 
 	// Start the application
-	app := NewApp()
+	app := NewApp(*sudoMode)
 	err := wails.Run(&options.App{
 		Title:  "Poto",
 		Width:  1200,

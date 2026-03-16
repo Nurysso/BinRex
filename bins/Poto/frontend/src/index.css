@@ -7,6 +7,39 @@ SPDX-License-Identifier: GPL-3.0-or-later
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Fallback GNOME (Adwaita) Colors */
+  --gtk-accent-bg-color: #3584e4;
+  --gtk-accent-fg-color: #ffffff;
+  --gtk-window-bg-color: #fafafa;
+  --gtk-window-fg-color: #000000;
+  --gtk-headerbar-bg-color: #ebebeb;
+  --gtk-headerbar-fg-color: #000000;
+  --gtk-card-bg-color: #ffffff;
+  --gtk-card-fg-color: #000000;
+  --gtk-popover-bg-color: #ffffff;
+  --gtk-popover-fg-color: #000000;
+  --gtk-view-bg-color: #ffffff;
+  --gtk-view-fg-color: #000000;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --gtk-accent-bg-color: #78aeed;
+    --gtk-accent-fg-color: #000000;
+    --gtk-window-bg-color: #242424;
+    --gtk-window-fg-color: #ffffff;
+    --gtk-headerbar-bg-color: #303030;
+    --gtk-headerbar-fg-color: #ffffff;
+    --gtk-card-bg-color: #303030;
+    --gtk-card-fg-color: #ffffff;
+    --gtk-popover-bg-color: #383838;
+    --gtk-popover-fg-color: #ffffff;
+    --gtk-view-bg-color: #1e1e1e;
+    --gtk-view-fg-color: #ffffff;
+  }
+}
+
 body {
   margin: 0;
   padding: 0;

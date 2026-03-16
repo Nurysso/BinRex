@@ -1,120 +1,56 @@
-# Poto
+# Poto - Modern Media Scanner
 
-> Fast and simple Gallery app for Linux (part of BinRex)
-
-A lightweight, fast media gallery application built with Wails that lets you browse your photos and videos with style.
-
-It exists cause I hate existing gallery apps that exists for
-linux they either are too complicated or too restrictive.
+Poto is a fast, lightweight, and modern media scanner built with Go (Wails) and React. It features a sleek, Adwaita/GNOME-inspired user interface and provides powerful tools to organize and browse your local images and videos.
 
 ## Features
 
-- 🚀 **Fast scanning** - Multi-threaded media file discovery
-- 🖼️ **High-quality thumbnails** - Configurable preview generation
-- 🎬 **Video support** - Thumbnail generation and MPV player integration
-- ⚙️ **Highly configurable** - Fine-tune scanning, performance, and appearance
-- 🎨 **Modern UI** - Clean, responsive interface with dark/light themes
-- 🔍 **Smart filtering** - Exclude unwanted directories and file patterns
+- **Blazing Fast Scanning**: Quickly indexes your media directories.
+- **GNOME-like UI**: Beautiful, clean interface that feels native to modern Linux desktop environments.
+- **Sudo Mode**: Support for an unrestricted `--sudo` mode to bypass configuration-defined folder restrictions.
+- **Advanced Filtering**: Filter your media by name, type, size, date, and specific folder paths.
+- **Integrated Viewers**:
+  - Fullscreen image viewer with rotation and zoom controls.
+  - Video playback integration (supports MPV if configured).
+- **Customizable**: Adapts to your system's GTK theme colors for a seamless experience.
 
-## Quick Start
+## Getting Started
 
+### Prerequisites
+
+- [Go](https://go.dev/) (1.18+)
+- [Node.js](https://nodejs.org/) and npm
+- [Wails CLI](https://wails.io/docs/gettingstarted/installation)
+
+### Installation
+
+1. Clone the repository and navigate to the project directory:
+   ```bash
+   cd BinRex/bins/Poto
+   ```
+
+2. Build the application using Wails:
+   ```bash
+   wails build
+   ```
+
+3. The built binary will be located in the `build/bin/` directory.
+
+### Usage
+
+Run the compiled binary:
 ```bash
-# Run Poto
-./poto
-
-# Show version
-./poto -v
-
-# Show help
-./poto -h
+./build/bin/Poto
 ```
 
-## Installation
-
-### From Binary
-
-```
-binrex install Poto
-```
-
-### Build from Source
-
+To run in sudo mode (unrestricted directory access):
 ```bash
-git clone https://github.com/Nurysso/binrex.git
-cd binrex/bins/Poto
-wails build
+./build/bin/Poto --sudo
 ```
 
 ## Configuration
 
-Poto can be configured via `~/.config/Poto/config.toml`
-
-### Quick Config Example
-
-```toml
-[scanner]
-scan_directories = [
-    "/home/username/Pictures",
-    "/home/username/Videos",
-]
-ignore_hidden = true
-
-[preview]
-quality = "high"  # Options: "low", "medium", "high"
-jpeg_quality = 95
-
-[video]
-enable_mpv = true
-
-[performance]
-worker_threads = 4
-batch_size = 20
-```
-
-### Configuration Options
-
-| Section       | Description                            |
-| ------------- | -------------------------------------- |
-| `scanner`     | Scan directories, exclusions, patterns |
-| `preview`     | Thumbnail quality and video settings   |
-| `video`       | MPV player integration                 |
-| `performance` | Threading and memory optimization      |
-| `look`        | Theme and appearance                   |
-
-**Full configuration guide**: [CONFIG.md](./doc/config.md)
-
-## Supported Formats
-
-**Images**: JPG, PNG, GIF, BMP, WebP, SVG, TIFF, HEIC
-**Videos**: MP4, AVI, MKV, MOV, WMV, WebM, MPG, FLV
-
-## Requirements
-
-- **Linux** (tested on Ubuntu, Fedora, Arch)
-- **Optional**: `ffmpeg` for video thumbnails
-- **Optional**: `mpv` for video playback
+Poto looks for its configuration file. You can configure scan directories and video player preferences via the built-in Help & Settings dialog.
 
 ## License
 
-Copyright (C) 2026 Dawood Khan
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-
-See [LICENSE](../../LICENSE) for details.
-
-## Maintainer
-
-**Dawood (Nurysso)**
-nurysso [at] proton.me
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## Acknowledgments
-
-Built with [Wails](https://wails.io/) - Go + Web frontends made easy
-
----
-
-**⭐ If you like Poto, give it a star!**
+MIT License

@@ -90,6 +90,7 @@ type App struct {
 	dbMu        sync.RWMutex
 
 	autoScanDone atomic.Bool
+	sudoMode     bool
 }
 
 type MediaFile struct {
@@ -136,8 +137,9 @@ var (
 	}
 )
 
-func NewApp() *App {
+func NewApp(sudoMode bool) *App {
 	app := &App{
+		sudoMode:    sudoMode,
 		mediaDB:     make(map[string]*MediaFile),
 		folderIndex: make(map[string][]string),
 		typeIndex:   make(map[string][]string),
@@ -209,6 +211,10 @@ func (a *App) saveDefaultConfig(path string) {
 
 func (a *App) GetConfig() Config {
 	return a.config
+}
+
+func (a *App) GetSudoMode() bool {
+	return a.sudoMode
 }
 
 func (a *App) UpdateConfig(config Config) error {
@@ -311,8 +317,8 @@ func (a *App) StartScan(startPath string) error {
 			}
 			startPath = home
 		}
-	} else {
-		// Validate against allowed directories
+	} else if !a.sudoMode {
+		// Validate against allowed directories if NOT in sudo mode
 		allowed := false
 		if len(a.config.Scanner.ScanDirectories) == 0 {
 			allowed = true
@@ -326,7 +332,7 @@ func (a *App) StartScan(startPath string) error {
 		}
 
 		if !allowed {
-			return fmt.Errorf("directory not in allowed scan directories")
+			return fmt.Errorf("directory not in allowed scan directories. Note: run with --sudo to bypass this restriction")
 		}
 	}
 
@@ -844,6 +850,43 @@ func (a *App) PlayWithMPV(filePath string) error {
 
 func (a *App) GetHomeDirectory() (string, error) {
 	return os.UserHomeDir()
+}
+
+func (a *App) GetGtkColors() map[string]string {
+	colors := make(map[string]string)
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return colors
+	}
+
+	configDir := filepath.Join(homeDir, ".config", "gtk-3.0")
+	
+	parseFile := func(path string) {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return
+		}
+
+		lines := strings.Split(string(data), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if strings.HasPrefix(line, "@define-color") {
+				parts := strings.Fields(line)
+				if len(parts) >= 3 {
+					name := parts[1]
+					val := strings.Join(parts[2:], " ")
+					val = strings.TrimSuffix(val, ";")
+					colors[name] = val
+				}
+			}
+		}
+	}
+
+	// Parse custom colors first, then main gtk.css (or vice versa. We'll parse colors.css first)
+	parseFile(filepath.Join(configDir, "colors.css"))
+	parseFile(filepath.Join(configDir, "gtk.css"))
+
+	return colors
 }
 
 func (a *App) IsScanning() bool {
